@@ -1,81 +1,43 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import viteLogo from "./assets/vite.svg";
-import heroImg from "./assets/hero.png";
-import "./App.css";
+import "./styles/global.css";
+import RegisterPage from "./pages/RegisterPage";
+import VerifyEmailPage from "./pages/VerifyEmailPage";
+import LoginPage from "./pages/LoginPage";
 
-function App() {
-  const [message, setMessage] = useState<string>("");
-  const [isLive, setIsLive] = useState<boolean | null>(null); // null = haven't checked yet
+// Simple client-side router — no library needed for three screens
+// Once the backend team sets up the full router, replace this with React Router
+function getPage() {
+  const path = window.location.pathname;
+  if (path === "/verify-email") return <VerifyEmailPage />;
+  if (path === "/login") return <LoginPage />;
+  return <RegisterPage />; // default: register
+}
 
-  const checkBackend = async () => {
-    try {
-      // Replace with your actual backend URL (usually http://localhost:3000)
-      const response = await fetch("http://localhost:3000/");
-
-      if (!response.ok) throw new Error("Server responded with an error");
-
-      const data = await response.text(); // or .json() if your backend sends JSON
-      setMessage(data);
-      setIsLive(true);
-    } catch (error) {
-      console.error("Backend fetch failed:", error);
-      setMessage("Backend is not live or unreachable.");
-      setIsLive(false);
-    }
-  };
-
+export default function App() {
   return (
     <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>FYP Connect</h1>
-          <p>
-            {isLive === null
-              ? "Click the button to verify the connection."
-              : isLive
-                ? "✅ Connection Successful!"
-                : "❌ Connection Failed!"}
-          </p>
-        </div>
-
-        <button className="counter" onClick={checkBackend}>
-          Check Backend Status
-        </button>
-
-        {message && (
-          <div
-            style={{
-              marginTop: "20px",
-              padding: "10px",
-              borderRadius: "8px",
-              backgroundColor: isLive
-                ? "rgba(0, 255, 0, 0.1)"
-                : "rgba(255, 0, 0, 0.1)",
-              border: `1px solid ${isLive ? "#4caf50" : "#f44336"}`,
-            }}
-          >
-            <code>{message}</code>
-          </div>
-        )}
-      </section>
-
-      <div className="ticks"></div>
-
-      {/* Rest of your static sections (Documentation, Social) remain the same */}
-      <section id="next-steps">
-        {/* ... (keep your existing documentation and social code here) */}
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
+      {/* Keyframe animations shared across all screens */}
+      <style>{`
+        @keyframes fadeSlideUp {
+          from { opacity: 0; transform: translateY(16px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to   { opacity: 1; }
+        }
+        button[type="submit"]:hover:not(:disabled) {
+          background: #45276e !important;
+        }
+        button[type="submit"]:active:not(:disabled) {
+          transform: scale(0.98);
+        }
+        input[type="text"]:focus, input[type="email"]:focus, input[type="password"]:focus {
+          border-color: #5D3891 !important;
+          box-shadow: 0 0 0 3px rgba(93, 56, 145, 0.12) !important;
+          background: #fff !important;
+        }
+      `}</style>
+      {getPage()}
     </>
   );
 }
-
-export default App;
