@@ -1,0 +1,65 @@
+/* Global styles and design tokens for FYPConnect */
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Fraunces:wght@600;700&display=swap');
+
+:root {
+  --purple: #5D3891;
+  --purple-light: #7a50b0;
+  --purple-dark: #45276e;
+  --gold: #F99417;
+  --gold-hover: #e08510;
+  --bg: #F5F5F5;
+  --surface: #ffffff;
+  --border: #E8E2E2;
+  --border-focus: #5D3891;
+  --text-primary: #1a1a2e;
+  --text-secondary: #6b6b7b;
+  --text-muted: #9999aa;
+  --error-bg: #F99417;
+  --error-text: #ffffff;
+  --input-bg: #fafafa;
+  --radius: 10px;
+  --radius-sm: 6px;
+  --shadow: 0 4px 24px rgba(93, 56, 145, 0.08);
+  --shadow-card: 0 8px 40px rgba(93, 56, 145, 0.12);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background-color: var(--bg);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Subtle geometric background pattern */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(93, 56, 145, 0.06) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(249, 148, 23, 0.05) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+a {
+  color: var(--purple);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+a:hover {
+  color: var(--gold);
+  text-decoration: underline;
+}
