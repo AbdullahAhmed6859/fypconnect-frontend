@@ -2,20 +2,20 @@ import "./styles/global.css";
 import RegisterPage from "./pages/RegisterPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 import LoginPage from "./pages/LoginPage";
+import DashboardPage from "./pages/DashboardPage";
 
-// Simple client-side router — no library needed for three screens
-// Once the backend team sets up the full router, replace this with React Router
+// Simple client-side router — replace with React Router once backend routing is set up
 function getPage() {
   const path = window.location.pathname;
   if (path === "/verify-email") return <VerifyEmailPage />;
-  if (path === "/login") return <LoginPage />;
-  return <RegisterPage />; // default: register
+  if (path === "/login")        return <LoginPage />;
+  if (path === "/dashboard")    return <DashboardPage />;
+  return <RegisterPage />; // default
 }
 
 export default function App() {
   return (
     <>
-      {/* Keyframe animations shared across all screens */}
       <style>{`
         @keyframes fadeSlideUp {
           from { opacity: 0; transform: translateY(16px); }

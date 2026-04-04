@@ -14,7 +14,6 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Auto-focus email on mount
   useEffect(() => {
     emailRef.current?.focus();
   }, []);
@@ -32,11 +31,14 @@ export default function LoginPage() {
     try {
       const response = await loginUser({ email: email.trim(), password });
 
-      // In the real app: store the token and redirect based on nextStep
+      // Store token for later use when backend integration is ready
+      localStorage.setItem("token", response.data.token);
+
+      // Redirect based on whether profile setup is still needed
       if (response.data.nextStep === "complete_profile") {
-        alert(`Logged in! Token: ${response.data.token}\nNext: Complete your profile.`);
+        window.location.href = "/profile-setup";
       } else {
-        alert(`Logged in! Redirecting to browse…`);
+        window.location.href = "/dashboard";
       }
     } catch (err: unknown) {
       const apiError = err as { code?: number; message?: string };
@@ -73,7 +75,6 @@ export default function LoginPage() {
           autoComplete="current-password"
         />
 
-        {/* Error only appears after a failed submit */}
         <ErrorBanner message={error} />
 
         <button

@@ -133,7 +133,7 @@ export async function loginUser(payload: LoginPayload): Promise<LoginResponse> {
         isVerified: true,
         profileCompleted: false,
       },
-      nextStep: "complete_profile",
+      nextStep: null,
     },
   };
 }
