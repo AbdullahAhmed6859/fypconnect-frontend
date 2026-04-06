@@ -245,10 +245,12 @@ export default function DashboardPage() {
 
   // ── Logout ──
   async function handleLogout() {
+  try {
     await logoutUser();
-    // In real app: clear token and navigate to /login
-    alert("Logged out! (navigate to /login)");
+  } finally {
+    window.location.href = "/login";
   }
+}
 
   // ── Right panel renderer ──
   function renderRight() {

@@ -4,11 +4,11 @@ import ErrorBanner from "../components/ErrorBanner";
 import { verifyEmail, resendVerification } from "../api/auth";
 
 const CODE_LENGTH = 6;
-const COUNTDOWN_SECONDS = 90
-// const COUNTDOWN_SECONDS = 24 * 60 * 60; // 24 hours — resets on reload (backend will own this later)
+// const COUNTDOWN_SECONDS = 90
+const COUNTDOWN_SECONDS = 24 * 60 * 60; // 24 hours — resets on reload (backend will own this later)
 
 // The email is normally passed via navigation state. Using dummy for now.
-const DUMMY_EMAIL = "sn08776@st.habib.edu.pk";
+const DUMMY_EMAIL = new URLSearchParams(window.location.search).get("email") ?? "";
 
 export default function VerifyEmailPage() {
   const [digits, setDigits] = useState<string[]>(Array(CODE_LENGTH).fill(""));
@@ -136,7 +136,6 @@ export default function VerifyEmailPage() {
       title="Verify Your Email"
       subtitle={`Enter the 6-digit verification code sent to ${DUMMY_EMAIL}`}
     >
-      <p style={styles.testHint}>Dummy code: <strong>123456</strong></p>
 
       <form onSubmit={handleSubmit} noValidate>
         {/* 6 digit slots */}

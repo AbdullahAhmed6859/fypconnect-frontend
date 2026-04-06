@@ -1,87 +1,163 @@
-// Dashboard API layer
-// All functions currently use dummy data. Replace with real fetch calls once backend is ready.
-// Base URL when integrating: http://localhost:5000/api/v1
-
 import type { Profile, MatchedPerson, ChatMessage, ChatThread } from "../types/dashboard";
-import {
-  DUMMY_MATCHES,
-  DUMMY_BROWSE_POOL,
-  DUMMY_CHAT_THREADS,
-} from "../data/dashboardData";
 
-const fakeDelay = (ms = 400) => new Promise((res) => setTimeout(res, ms));
+const BASE_URL = "http://localhost:5000/api/v1";
 
-// GET /browse/next
-// Returns the next profile from the browse pool, excluding already seen/passed/liked IDs
-export async function fetchNextBrowseProfile(
-  excludeIds: number[]
-): Promise<Profile | null> {
-  await fakeDelay();
-  const next = DUMMY_BROWSE_POOL.find((p) => !excludeIds.includes(p.id));
-  return next ?? null;
+function authHeaders() {
+  return { "Content-Type": "application/json" };
 }
 
-// GET /matches
-// Returns all people who have liked the current user
+async function handleResponse<T>(res: Response): Promise<T> {
+  const json = await res.json();
+  if (!res.ok) throw { code: res.status, message: json.message ?? "Something went wrong." };
+  return json as T;
+}
+
+export async function fetchNextBrowseProfile(_excludeIds: number[]): Promise<Profile | null> {
+  const res = await fetch(`${BASE_URL}/browse/next`, {
+    credentials: "include",
+    headers: authHeaders(),
+  });
+
+  if (res.status === 200) {
+    const json = await res.json();
+    if (!json.data.hasProfile) return null;
+    const p = json.data.profile;
+
+    return {
+      id: p.userId,
+      name: p.fullName,
+      year: p.yearOfStudy,
+      major: p.major,
+      skills: p.skills,
+      interests: p.interests,
+      bio: p.bio,
+      projects: p.projects,
+      links: p.links,
+      fypIdea: p.fypIdea,
+      profilePicture: p.profilePicture,
+    } as Profile;
+  }
+
+  throw { code: res.status, message: "Failed to load profile." };
+}
+
 export async function fetchMatches(): Promise<MatchedPerson[]> {
-  await fakeDelay();
-  return DUMMY_MATCHES;
+  const res = await fetch(`${BASE_URL}/matches`, {
+    credentials: "include",
+    headers: authHeaders(),
+  });
+
+  const json = await handleResponse<{ data: any[] }>(res);
+
+  return json.data.map((m) => ({
+    id: m.matchedUser.userId,
+    matchId: m.matchId,
+    name: m.matchedUser.fullName,
+    major: m.matchedUser.major,
+    year: m.matchedUser.yearOfStudy,
+    profilePicture: m.matchedUser.profilePicture,
+    lastMessagePreview: m.lastMessagePreview,
+    hasUnreadMessages: m.hasUnreadMessages,
+    isNewMatch: m.isNewMatch,
+    hasProfileUpdated: m.hasProfileUpdated,
+  })) as MatchedPerson[];
 }
 
-// POST /browse/like
-// Current user likes a browse profile. Returns whether it was a mutual match.
 export async function likeProfile(targetUserId: number): Promise<{ isMutualMatch: boolean }> {
-  await fakeDelay(300);
-  // Dummy: no browse pool profiles are mutual matches by default
-  return { isMutualMatch: false };
+  const res = await fetch(`${BASE_URL}/browse/like`, {
+    method: "POST",
+    credentials: "include",
+    headers: authHeaders(),
+    body: JSON.stringify({ targetUserId }),
+  });
+
+  const json = await handleResponse<{ data: { isMutualMatch: boolean } }>(res);
+  return { isMutualMatch: json.data.isMutualMatch };
 }
 
-// POST /browse/pass
-// Current user passes a browse profile — permanent, won't show again
 export async function passProfile(targetUserId: number): Promise<void> {
-  await fakeDelay(200);
+  const res = await fetch(`${BASE_URL}/browse/pass`, {
+    method: "POST",
+    credentials: "include",
+    headers: authHeaders(),
+    body: JSON.stringify({ targetUserId }),
+  });
+
+  await handleResponse(res);
 }
 
-// POST /browse/like (used when liking back from the Matches tab)
-// Returns matchId so the chat can be opened
 export async function likeBackMatch(targetUserId: number): Promise<{ matchId: number }> {
-  await fakeDelay(300);
-  return { matchId: targetUserId * 10 }; // dummy matchId
+  const res = await fetch(`${BASE_URL}/browse/like`, {
+    method: "POST",
+    credentials: "include",
+    headers: authHeaders(),
+    body: JSON.stringify({ targetUserId }),
+  });
+
+  const json = await handleResponse<{ data: { match?: { matchId: number }; isMutualMatch: boolean } }>(res);
+  return { matchId: json.data.match?.matchId ?? targetUserId };
 }
 
-// POST /browse/pass (used when passing from the Matches tab)
 export async function passMatch(targetUserId: number): Promise<void> {
-  await fakeDelay(200);
+  return passProfile(targetUserId);
 }
 
-// GET /chat/conversations/{matchId}
-// Returns the full message history for a match
 export async function fetchChatHistory(matchId: number): Promise<ChatThread | null> {
-  await fakeDelay();
-  return DUMMY_CHAT_THREADS.find((t) => t.personId === matchId) ?? null;
+  const res = await fetch(`${BASE_URL}/chat/conversations/${matchId}`, {
+    credentials: "include",
+    headers: authHeaders(),
+  });
+
+  if (res.status === 403 || res.status === 404) return null;
+
+  const json = await handleResponse<{ data: any }>(res);
+  const d = json.data;
+
+  return {
+    personId: d.matchedUser.userId,
+    messages: d.messages.map((m: any) => ({
+      from: m.senderId === d.matchedUser.userId ? "them" : "me",
+      text: m.content,
+    })),
+  } as ChatThread;
 }
 
-// POST /chat/conversations/{matchId}/messages
-// Sends a message. Returns the saved message.
-export async function sendChatMessage(
-  matchId: number,
-  content: string
-): Promise<ChatMessage> {
-  await fakeDelay(200);
+export async function sendChatMessage(matchId: number, content: string): Promise<ChatMessage> {
+  const res = await fetch(`${BASE_URL}/chat/conversations/${matchId}/messages`, {
+    method: "POST",
+    credentials: "include",
+    headers: authHeaders(),
+    body: JSON.stringify({ content }),
+  });
+
+  await handleResponse(res);
   return { from: "me", text: content };
 }
 
-// POST /matches/{matchId}/unmatch
 export async function unmatchUser(matchId: number): Promise<void> {
-  await fakeDelay(300);
+  const res = await fetch(`${BASE_URL}/matches/${matchId}/unmatch`, {
+    method: "POST",
+    credentials: "include",
+    headers: authHeaders(),
+  });
+
+  await handleResponse(res);
 }
 
-// POST /matches/{matchId}/block
 export async function blockUser(matchId: number): Promise<void> {
-  await fakeDelay(300);
+  const res = await fetch(`${BASE_URL}/matches/${matchId}/block`, {
+    method: "POST",
+    credentials: "include",
+    headers: authHeaders(),
+  });
+
+  await handleResponse(res);
 }
 
-// POST /auth/logout
 export async function logoutUser(): Promise<void> {
-  await fakeDelay(200);
+  await fetch(`${BASE_URL}/auth/logout`, {
+    method: "POST",
+    credentials: "include",
+    headers: authHeaders(),
+  });
 }
