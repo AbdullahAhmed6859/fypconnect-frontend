@@ -21,18 +21,27 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
 
-    if (!email.trim() || !password.trim()) {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail || !password.trim()) {
       setError("Please fill in both fields.");
       return;
     }
 
     setLoading(true);
     try {
-        await loginUser({ email: email.trim(), password });
-        window.location.href = "/dashboard";
+      await loginUser({ email: normalizedEmail, password });
+      window.location.href = "/dashboard";
     } catch (err: unknown) {
       const apiError = err as { code?: number; message?: string };
-      setError(apiError.message ?? "Something went wrong. Please try again.");
+      const message = apiError.message ?? "Something went wrong. Please try again.";
+
+      if (apiError.code === 403 && message.toLowerCase().includes("verify")) {
+        window.location.href = `/verify-email?email=${encodeURIComponent(normalizedEmail)}`;
+        return;
+      }
+
+      setError(message);
     } finally {
       setLoading(false);
     }
