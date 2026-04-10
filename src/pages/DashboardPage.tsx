@@ -3,6 +3,7 @@ import LeftPanel from "../components/dashboard/LeftPanel";
 import ProfileCard from "../components/dashboard/ProfileCard";
 import ChatPanel from "../components/dashboard/ChatPanel";
 import ConfirmModal from "../components/dashboard/ConfirmModal";
+import { getSessionUser } from "../api/auth";
 import type { MatchedPerson, Profile, ChatMessage, ChatThread } from "../types/dashboard";
 import { DUMMY_MATCHES, DUMMY_CHAT_THREADS, DUMMY_BROWSE_POOL } from "../data/dashboardData";
 import {
@@ -14,6 +15,7 @@ import {
   blockUser,
   logoutUser,
 } from "../api/dashboard";
+
 
 type ActiveTab = "chats" | "matches";
 
@@ -34,6 +36,11 @@ interface ModalState {
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("matches");
+  useEffect(() => {
+  getSessionUser().catch(() => {
+    window.location.href = "/login";
+  });
+}, []);
 
   // --- Matches state ---
   // IDs passed or liked in the Matches tab
@@ -214,9 +221,9 @@ export default function DashboardPage() {
       body: "This will remove the match from both chat lists. You can match again in the future, but previous messages won't be restored.",
       confirmLabel: "Unmatch",
       onConfirm: async () => {
-        await unmatchUser(personId);
-        executeRemove(personId);
-      },
+      await unmatchUser(person.matchId);
+      executeRemove(personId);
+    },
     });
   }
 
@@ -228,9 +235,9 @@ export default function DashboardPage() {
       body: "Blocking will unmatch you immediately and prevent any future matching. You can unblock them later in Match Settings.",
       confirmLabel: "Block",
       onConfirm: async () => {
-        await blockUser(personId);
-        executeRemove(personId);
-      },
+      await blockUser(person.matchId);
+      executeRemove(personId);
+    },
     });
   }
 
@@ -245,10 +252,12 @@ export default function DashboardPage() {
 
   // ── Logout ──
   async function handleLogout() {
+  try {
     await logoutUser();
-    // In real app: clear token and navigate to /login
-    alert("Logged out! (navigate to /login)");
+  } finally {
+    window.location.href = "/login";
   }
+}
 
   // ── Right panel renderer ──
   function renderRight() {

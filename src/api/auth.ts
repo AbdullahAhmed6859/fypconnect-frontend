@@ -1,39 +1,13 @@
-// Auth API — POST /auth/register, /auth/verify-email, /auth/resend-verification, /auth/login
-// Currently using dummy data. Swap BASE_URL and remove dummy logic once backend is ready.
-
-const BASE_URL = "http://localhost:5000/api/v1";
-
-// --- Dummy data for testing without backend ---
-const DUMMY_REGISTERED_EMAIL = "sn08776@st.habib.edu.pk";
-const DUMMY_VERIFICATION_CODE = "123456";
-const DUMMY_PASSWORD = "password";
+import { authRoutes } from "./routes";
 
 export interface RegisterPayload {
   email: string;
   password: string;
 }
 
-export interface RegisterResponse {
-  message: string;
-  data: {
-    userId: number;
-    email: string;
-    verificationStatus: "pending";
-    codeExpiresInHours: number;
-  };
-}
-
 export interface VerifyEmailPayload {
   email: string;
   verificationCode: string;
-}
-
-export interface VerifyEmailResponse {
-  message: string;
-  data: {
-    email: string;
-    verificationStatus: "verified";
-  };
 }
 
 export interface ResendVerificationPayload {
@@ -45,95 +19,129 @@ export interface LoginPayload {
   password: string;
 }
 
-export interface LoginResponse {
+export interface ApiEnvelope<T> {
+  success: boolean;
   message: string;
-  data: {
-    token: string;
-    expiresIn: string;
-    user: {
-      id: number;
-      email: string;
-      isVerified: boolean;
-      profileCompleted: boolean;
-    };
-    nextStep: "complete_profile" | null;
+  data: T | null;
+}
+
+export interface RegisterData {
+  user_id: number;
+  email: string;
+  verified: boolean;
+  account_status: string;
+}
+
+export interface LoginData {
+  user: {
+    user_id: number;
+    email: string;
+    verified: boolean;
   };
 }
 
-// Simulates network delay so the UI feels realistic
-const fakeDelay = (ms = 600) => new Promise((res) => setTimeout(res, ms));
+type ApiError = {
+  code: number;
+  message: string;
+};
 
-export async function registerUser(payload: RegisterPayload): Promise<RegisterResponse> {
-  await fakeDelay();
+async function parseJsonSafely(res: Response) {
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
 
-  // Dummy validation — mirrors what the backend would reject
-  if (!payload.email.endsWith("@st.habib.edu.pk")) {
-    throw { code: 400, message: "Email must end with @st.habib.edu.pk" };
+async function handleResponse<T>(res: Response): Promise<ApiEnvelope<T>> {
+  const json = await parseJsonSafely(res);
+
+  if (!res.ok) {
+    const message =
+      json?.message ??
+      json?.error ??
+      "Something went wrong. Please try again.";
+
+    throw {
+      code: res.status,
+      message,
+    } as ApiError;
   }
 
-  // Strip whitespace and check if length is less than 8
-  if (payload.password.trim().length < 8) {
-    throw { code: 400, message: "Password must be at least 8 characters long!" };
-  }
-  
-  if (payload.email === DUMMY_REGISTERED_EMAIL) {
-    throw { code: 409, message: "An account with this email already exists" };
-  }
+  return json as ApiEnvelope<T>;
+}
 
-  return {
-    message: "Registration successful. Verification code sent to email.",
-    data: {
-      userId: 12,
+export async function registerUser(
+  payload: RegisterPayload
+): Promise<ApiEnvelope<RegisterData>> {
+  const res = await fetch(authRoutes.register, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  return handleResponse<RegisterData>(res);
+}
+
+export async function verifyEmail(
+  payload: VerifyEmailPayload
+): Promise<ApiEnvelope<null>> {
+  const res = await fetch(authRoutes.verifyEmail, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
       email: payload.email,
-      verificationStatus: "pending",
-      codeExpiresInHours: 24,
-    },
-  };
+      token: payload.verificationCode,
+    }),
+  });
+
+  return handleResponse<null>(res);
 }
 
-export async function verifyEmail(payload: VerifyEmailPayload): Promise<VerifyEmailResponse> {
-  await fakeDelay();
+export async function resendVerification(
+  payload: ResendVerificationPayload
+): Promise<ApiEnvelope<null>> {
+  const res = await fetch(authRoutes.resendVerification, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
 
-  if (payload.verificationCode !== DUMMY_VERIFICATION_CODE) {
-    throw { code: 400, message: "Incorrect verification code. Please try again." };
-  }
-
-  return {
-    message: "Email verified successfully",
-    data: {
-      email: payload.email,
-      verificationStatus: "verified",
-    },
-  };
+  return handleResponse<null>(res);
 }
 
-export async function resendVerification(payload: ResendVerificationPayload): Promise<{ message: string }> {
-  await fakeDelay();
-  return { message: "Verification code resent successfully" };
+export async function loginUser(
+  payload: LoginPayload
+): Promise<ApiEnvelope<LoginData>> {
+  const res = await fetch(authRoutes.login, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  return handleResponse<LoginData>(res);
 }
 
-export async function loginUser(payload: LoginPayload): Promise<LoginResponse> {
-  await fakeDelay();
+export async function logoutUser(): Promise<ApiEnvelope<null>> {
+  const res = await fetch(authRoutes.logout, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+  });
 
-  if (
-    payload.email !== DUMMY_REGISTERED_EMAIL ||
-    payload.password !== DUMMY_PASSWORD
-  ) {
-    throw { code: 401, message: "Invalid email or password." };
-  }
+  return handleResponse<null>(res);
+}
 
-  return {
-    message: "Login successful",
-    data: {
-      token: "dummy-jwt-token-abc123",
-      expiresIn: "24h",
-      user: {
-        id: 12,
-        email: payload.email,
-        isVerified: true,
-        profileCompleted: false,
-      },
-      nextStep: null,
-    },
-  };
+export async function getSessionUser(): Promise<ApiEnvelope<{ user: unknown }>> {
+  const res = await fetch(authRoutes.protected, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  return handleResponse<{ user: unknown }>(res);
 }

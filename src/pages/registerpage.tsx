@@ -4,19 +4,16 @@ import InputField from "../components/InputField";
 import ErrorBanner from "../components/ErrorBanner";
 import { registerUser } from "../api/auth";
 
-// Dummy hint so testers know what will pass validation
-const HINT = "Try: xy12345@st.habib.edu.pk";
-
 export default function RegisterPage() {
   const emailRef = useRef<HTMLInputElement>(null);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  // Auto-focus the email field when the page loads
   useEffect(() => {
     emailRef.current?.focus();
   }, []);
@@ -25,15 +22,27 @@ export default function RegisterPage() {
     e.preventDefault();
     setError(null);
 
-    // Client-side: check both fields are filled before even calling the API
-    if (!email.trim() || !password.trim()) {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail || !password.trim()) {
       setError("Please fill in both fields.");
+      return;
+    }
+
+    if (!normalizedEmail.endsWith("@st.habib.edu.pk")) {
+      setError("Please use your Habib University student email.");
+      return;
+    }
+
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
       return;
     }
 
     setLoading(true);
     try {
-      await registerUser({ email: email.trim(), password });
+      await registerUser({ email: normalizedEmail, password });
+      setEmail(normalizedEmail);
       setSuccess(true);
     } catch (err: unknown) {
       const apiError = err as { code?: number; message?: string };
@@ -52,14 +61,10 @@ export default function RegisterPage() {
         <p style={styles.hint}>
           Head to the <strong>Verify Email</strong> screen to complete registration.
         </p>
-        <p style={styles.tinyHint}>
-          (Dummy verification code: <strong>123456</strong>)
-        </p>
         <button
           style={styles.linkBtn}
           onClick={() => {
-            // In the real app this would navigate to /verify-email
-            window.location.href = "/verify-email";
+            window.location.href = `/verify-email?email=${encodeURIComponent(email)}`;
           }}
         >
           Go to Verify Email →
@@ -70,7 +75,6 @@ export default function RegisterPage() {
 
   return (
     <AuthCard title="Register Account">
-      <p style={styles.testHint}>{HINT}</p>
       <form onSubmit={handleSubmit} noValidate>
         <InputField
           ref={emailRef}
@@ -82,16 +86,25 @@ export default function RegisterPage() {
           autoComplete="email"
         />
 
-        <InputField
-          label="Password"
-          type="password"
-          placeholder="Min. 8 characters"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          autoComplete="new-password"
-        />
+        <div style={styles.passwordWrapper}>
+          <InputField
+            label="Password"
+            type={showPassword ? "text" : "password"}
+            placeholder="Min. 8 characters"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
+          />
+          <button
+            type="button"
+            style={styles.eyeBtn}
+            onClick={() => setShowPassword((v) => !v)}
+            aria-label={showPassword ? "Hide password" : "Show password"}
+          >
+            {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+          </button>
+        </div>
 
-        {/* Error shows only after a failed submit — blank otherwise */}
         <ErrorBanner message={error} />
 
         <button
@@ -111,12 +124,40 @@ export default function RegisterPage() {
   );
 }
 
+function EyeIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+function EyeOffIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+      <line x1="1" y1="1" x2="23" y2="23" />
+    </svg>
+  );
+}
+
 const styles: Record<string, React.CSSProperties> = {
-  testHint: {
-    fontSize: "12px",
+  passwordWrapper: {
+    position: "relative",
+  },
+  eyeBtn: {
+    position: "absolute",
+    right: "12px",
+    bottom: "26px",
+    background: "none",
+    border: "none",
+    cursor: "pointer",
     color: "#9999aa",
-    marginBottom: "20px",
-    fontStyle: "italic",
+    padding: "0",
+    display: "flex",
+    alignItems: "center",
   },
   submitBtn: {
     width: "100%",
@@ -140,13 +181,7 @@ const styles: Record<string, React.CSSProperties> = {
   hint: {
     fontSize: "14px",
     color: "#6b6b7b",
-    marginBottom: "8px",
-  },
-  tinyHint: {
-    fontSize: "12px",
-    color: "#9999aa",
     marginBottom: "20px",
-    fontStyle: "italic",
   },
   linkBtn: {
     background: "none",

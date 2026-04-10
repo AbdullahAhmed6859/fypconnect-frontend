@@ -4,11 +4,10 @@ import ErrorBanner from "../components/ErrorBanner";
 import { verifyEmail, resendVerification } from "../api/auth";
 
 const CODE_LENGTH = 6;
-const COUNTDOWN_SECONDS = 90
-// const COUNTDOWN_SECONDS = 24 * 60 * 60; // 24 hours — resets on reload (backend will own this later)
+// const COUNTDOWN_SECONDS = 90
+const COUNTDOWN_SECONDS = 24 * 60 * 60; // 24 hours — resets on reload (backend will own this later)
 
-// The email is normally passed via navigation state. Using dummy for now.
-const DUMMY_EMAIL = "sn08776@st.habib.edu.pk";
+const EMAIL_FROM_QUERY = new URLSearchParams(window.location.search).get("email")?.trim().toLowerCase() ?? "";
 
 export default function VerifyEmailPage() {
   const [digits, setDigits] = useState<string[]>(Array(CODE_LENGTH).fill(""));
@@ -75,45 +74,55 @@ export default function VerifyEmailPage() {
   }
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
+  e.preventDefault();
+  setError(null);
 
-    const code = digits.join("");
-    if (code.length < CODE_LENGTH) {
-      setError("Please enter all 6 digits.");
-      return;
-    }
+  if (!EMAIL_FROM_QUERY) {
+    setError("Missing email. Please go back and register again.");
+    return;
+  }
 
-    setLoading(true);
-    try {
-      await verifyEmail({ email: DUMMY_EMAIL, verificationCode: code });
-      setSuccess(true);
-    } catch (err: unknown) {
-      const apiError = err as { code?: number; message?: string };
-      setError(apiError.message ?? "Something went wrong. Please try again.");
-      // Clear the slots and re-focus first on a wrong code
-      setDigits(Array(CODE_LENGTH).fill(""));
-      inputRefs.current[0]?.focus();
-    } finally {
-      setLoading(false);
-    }
-  }, [digits]);
+  const code = digits.join("");
+  if (code.length < CODE_LENGTH) {
+    setError("Please enter all 6 digits.");
+    return;
+  }
+
+  setLoading(true);
+  try {
+    await verifyEmail({ email: EMAIL_FROM_QUERY, verificationCode: code });
+    setSuccess(true);
+  } catch (err: unknown) {
+    const apiError = err as { code?: number; message?: string };
+    setError(apiError.message ?? "Something went wrong. Please try again.");
+    setDigits(Array(CODE_LENGTH).fill(""));
+    inputRefs.current[0]?.focus();
+  } finally {
+    setLoading(false);
+  }
+}, [digits]);
 
   async function handleResend() {
-    setResendMessage(null);
-    setError(null);
-    setResendLoading(true);
-    try {
-      await resendVerification({ email: DUMMY_EMAIL });
-      setResendMessage("A new code has been sent.");
-      setTimeLeft(COUNTDOWN_SECONDS); // reset the timer
-    } catch (err: unknown) {
-      const apiError = err as { code?: number; message?: string };
-      setError(apiError.message ?? "Could not resend. Try again later.");
-    } finally {
-      setResendLoading(false);
-    }
+  setResendMessage(null);
+  setError(null);
+
+  if (!EMAIL_FROM_QUERY) {
+    setError("Missing email. Please go back and register again.");
+    return;
   }
+
+  setResendLoading(true);
+  try {
+    await resendVerification({ email: EMAIL_FROM_QUERY });
+    setResendMessage("A new code has been sent.");
+    setTimeLeft(COUNTDOWN_SECONDS);
+  } catch (err: unknown) {
+    const apiError = err as { code?: number; message?: string };
+    setError(apiError.message ?? "Could not resend. Try again later.");
+  } finally {
+    setResendLoading(false);
+  }
+}
 
   if (success) {
     return (
@@ -134,9 +143,8 @@ export default function VerifyEmailPage() {
   return (
     <AuthCard
       title="Verify Your Email"
-      subtitle={`Enter the 6-digit verification code sent to ${DUMMY_EMAIL}`}
+      subtitle={`Enter the 6-digit verification code sent to ${EMAIL_FROM_QUERY}`}
     >
-      <p style={styles.testHint}>Dummy code: <strong>123456</strong></p>
 
       <form onSubmit={handleSubmit} noValidate>
         {/* 6 digit slots */}
@@ -185,7 +193,7 @@ export default function VerifyEmailPage() {
         <button
           style={styles.resendBtn}
           onClick={handleResend}
-          disabled={resendLoading}
+          disabled={resendLoading || !EMAIL_FROM_QUERY}
         >
           {resendLoading ? "Sending…" : "Resend Email."}
         </button>
