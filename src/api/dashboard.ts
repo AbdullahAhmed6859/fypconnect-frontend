@@ -1,19 +1,31 @@
 import type { Profile, MatchedPerson, ChatMessage, ChatThread } from "../types/dashboard";
-
-const BASE_URL = "http://localhost:5000/api/v1";
+import { API_BASE_URL } from "./routes";
 
 function authHeaders() {
   return { "Content-Type": "application/json" };
 }
 
+async function parseJsonSafely(res: Response) {
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
 async function handleResponse<T>(res: Response): Promise<T> {
-  const json = await res.json();
-  if (!res.ok) throw { code: res.status, message: json.message ?? "Something went wrong." };
+  const json = await parseJsonSafely(res);
+  if (!res.ok) {
+    throw {
+      code: res.status,
+      message: json?.message ?? json?.error ?? "Something went wrong.",
+    };
+  }
   return json as T;
 }
 
 export async function fetchNextBrowseProfile(_excludeIds: number[]): Promise<Profile | null> {
-  const res = await fetch(`${BASE_URL}/browse/next`, {
+  const res = await fetch(`${API_BASE_URL}/browse/next`, {
     credentials: "include",
     headers: authHeaders(),
   });
@@ -42,7 +54,7 @@ export async function fetchNextBrowseProfile(_excludeIds: number[]): Promise<Pro
 }
 
 export async function fetchMatches(): Promise<MatchedPerson[]> {
-  const res = await fetch(`${BASE_URL}/matches`, {
+  const res = await fetch(`${API_BASE_URL}/matches`, {
     credentials: "include",
     headers: authHeaders(),
   });
@@ -64,7 +76,7 @@ export async function fetchMatches(): Promise<MatchedPerson[]> {
 }
 
 export async function likeProfile(targetUserId: number): Promise<{ isMutualMatch: boolean }> {
-  const res = await fetch(`${BASE_URL}/browse/like`, {
+  const res = await fetch(`${API_BASE_URL}/browse/like`, {
     method: "POST",
     credentials: "include",
     headers: authHeaders(),
@@ -76,7 +88,7 @@ export async function likeProfile(targetUserId: number): Promise<{ isMutualMatch
 }
 
 export async function passProfile(targetUserId: number): Promise<void> {
-  const res = await fetch(`${BASE_URL}/browse/pass`, {
+  const res = await fetch(`${API_BASE_URL}/browse/pass`, {
     method: "POST",
     credentials: "include",
     headers: authHeaders(),
@@ -87,7 +99,7 @@ export async function passProfile(targetUserId: number): Promise<void> {
 }
 
 export async function likeBackMatch(targetUserId: number): Promise<{ matchId: number }> {
-  const res = await fetch(`${BASE_URL}/browse/like`, {
+  const res = await fetch(`${API_BASE_URL}/browse/like`, {
     method: "POST",
     credentials: "include",
     headers: authHeaders(),
@@ -103,7 +115,7 @@ export async function passMatch(targetUserId: number): Promise<void> {
 }
 
 export async function fetchChatHistory(matchId: number): Promise<ChatThread | null> {
-  const res = await fetch(`${BASE_URL}/chat/conversations/${matchId}`, {
+  const res = await fetch(`${API_BASE_URL}/chat/conversations/${matchId}`, {
     credentials: "include",
     headers: authHeaders(),
   });
@@ -123,7 +135,7 @@ export async function fetchChatHistory(matchId: number): Promise<ChatThread | nu
 }
 
 export async function sendChatMessage(matchId: number, content: string): Promise<ChatMessage> {
-  const res = await fetch(`${BASE_URL}/chat/conversations/${matchId}/messages`, {
+  const res = await fetch(`${API_BASE_URL}/chat/conversations/${matchId}/messages`, {
     method: "POST",
     credentials: "include",
     headers: authHeaders(),
@@ -135,7 +147,7 @@ export async function sendChatMessage(matchId: number, content: string): Promise
 }
 
 export async function unmatchUser(matchId: number): Promise<void> {
-  const res = await fetch(`${BASE_URL}/matches/${matchId}/unmatch`, {
+  const res = await fetch(`${API_BASE_URL}/matches/${matchId}/unmatch`, {
     method: "POST",
     credentials: "include",
     headers: authHeaders(),
@@ -145,7 +157,7 @@ export async function unmatchUser(matchId: number): Promise<void> {
 }
 
 export async function blockUser(matchId: number): Promise<void> {
-  const res = await fetch(`${BASE_URL}/matches/${matchId}/block`, {
+  const res = await fetch(`${API_BASE_URL}/matches/${matchId}/block`, {
     method: "POST",
     credentials: "include",
     headers: authHeaders(),
@@ -155,7 +167,7 @@ export async function blockUser(matchId: number): Promise<void> {
 }
 
 export async function logoutUser(): Promise<void> {
-  await fetch(`${BASE_URL}/auth/logout`, {
+  await fetch(`${API_BASE_URL}/auth/logout`, {
     method: "POST",
     credentials: "include",
     headers: authHeaders(),

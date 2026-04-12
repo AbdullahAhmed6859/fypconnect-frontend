@@ -1,28 +1,13 @@
-const BASE_URL = "http://localhost:5000/api/v1";
+import { authRoutes } from "./routes";
 
 export interface RegisterPayload {
   email: string;
   password: string;
 }
 
-export interface RegisterResponse {
-  message: string;
-  data?: {
-    user_id?: number;
-    email?: string;
-    verified?: boolean;
-    account_status?: string;
-  };
-}
-
 export interface VerifyEmailPayload {
   email: string;
   verificationCode: string;
-}
-
-export interface VerifyEmailResponse {
-  message: string;
-  data?: unknown;
 }
 
 export interface ResendVerificationPayload {
@@ -34,37 +19,75 @@ export interface LoginPayload {
   password: string;
 }
 
-export interface LoginResponse {
+export interface ApiEnvelope<T> {
+  success: boolean;
   message: string;
-  data: {
-    user: {
-      user_id: number;
-      email: string;
-      verified: boolean;
-    };
+  data: T | null;
+}
+
+export interface RegisterData {
+  user_id: number;
+  email: string;
+  verified: boolean;
+  account_status: string;
+}
+
+export interface LoginData {
+  user: {
+    user_id: number;
+    email: string;
+    verified: boolean;
   };
 }
 
-async function handleResponse<T>(res: Response): Promise<T> {
-  const json = await res.json();
-  if (!res.ok) {
-    throw { code: res.status, message: json.message ?? "Something went wrong." };
+type ApiError = {
+  code: number;
+  message: string;
+};
+
+async function parseJsonSafely(res: Response) {
+  try {
+    return await res.json();
+  } catch {
+    return null;
   }
-  return json as T;
 }
 
-export async function registerUser(payload: RegisterPayload): Promise<RegisterResponse> {
-  const res = await fetch(`${BASE_URL}/auth/register`, {
+async function handleResponse<T>(res: Response): Promise<ApiEnvelope<T>> {
+  const json = await parseJsonSafely(res);
+
+  if (!res.ok) {
+    const message =
+      json?.message ??
+      json?.error ??
+      "Something went wrong. Please try again.";
+
+    throw {
+      code: res.status,
+      message,
+    } as ApiError;
+  }
+
+  return json as ApiEnvelope<T>;
+}
+
+export async function registerUser(
+  payload: RegisterPayload
+): Promise<ApiEnvelope<RegisterData>> {
+  const res = await fetch(authRoutes.register, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  return handleResponse<RegisterResponse>(res);
+
+  return handleResponse<RegisterData>(res);
 }
 
-export async function verifyEmail(payload: VerifyEmailPayload): Promise<VerifyEmailResponse> {
-  const res = await fetch(`${BASE_URL}/auth/verify-email`, {
+export async function verifyEmail(
+  payload: VerifyEmailPayload
+): Promise<ApiEnvelope<null>> {
+  const res = await fetch(authRoutes.verifyEmail, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
@@ -73,27 +96,52 @@ export async function verifyEmail(payload: VerifyEmailPayload): Promise<VerifyEm
       token: payload.verificationCode,
     }),
   });
-  return handleResponse<VerifyEmailResponse>(res);
+
+  return handleResponse<null>(res);
 }
 
 export async function resendVerification(
   payload: ResendVerificationPayload
-): Promise<{ message: string }> {
-  const res = await fetch(`${BASE_URL}/auth/resend-verification`, {
+): Promise<ApiEnvelope<null>> {
+  const res = await fetch(authRoutes.resendVerification, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  return handleResponse<{ message: string }>(res);
+
+  return handleResponse<null>(res);
 }
 
-export async function loginUser(payload: LoginPayload): Promise<LoginResponse> {
-  const res = await fetch(`${BASE_URL}/auth/login`, {
+export async function loginUser(
+  payload: LoginPayload
+): Promise<ApiEnvelope<LoginData>> {
+  const res = await fetch(authRoutes.login, {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  return handleResponse<LoginResponse>(res);
+
+  return handleResponse<LoginData>(res);
+}
+
+export async function logoutUser(): Promise<ApiEnvelope<null>> {
+  const res = await fetch(authRoutes.logout, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  return handleResponse<null>(res);
+}
+
+export async function getSessionUser(): Promise<ApiEnvelope<{ user: unknown }>> {
+  const res = await fetch(authRoutes.protected, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  return handleResponse<{ user: unknown }>(res);
 }

@@ -22,14 +22,27 @@ export default function RegisterPage() {
     e.preventDefault();
     setError(null);
 
-    if (!email.trim() || !password.trim()) {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail || !password.trim()) {
       setError("Please fill in both fields.");
+      return;
+    }
+
+    if (!normalizedEmail.endsWith("@st.habib.edu.pk")) {
+      setError("Please use your Habib University student email.");
+      return;
+    }
+
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
       return;
     }
 
     setLoading(true);
     try {
-      await registerUser({ email: email.trim(), password });
+      await registerUser({ email: normalizedEmail, password });
+      setEmail(normalizedEmail);
       setSuccess(true);
     } catch (err: unknown) {
       const apiError = err as { code?: number; message?: string };
