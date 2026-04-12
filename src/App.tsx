@@ -3,13 +3,23 @@ import RegisterPage from "./pages/RegisterPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
+import {
+  ProfileSetupAcademicPage,
+  ProfileSetupMatchingPage,
+  ProfileSetupPreferencesPage,
+  ProfileSetupPersonalPage,
+} from "./pages/ProfileSetupPages";
 
 // Simple client-side router — replace with React Router once backend routing is set up
 function getPage() {
   const path = window.location.pathname;
-  if (path === "/verify-email") return <VerifyEmailPage />;
-  if (path === "/login")        return <LoginPage />;
-  if (path === "/dashboard")    return <DashboardPage />;
+  if (path === "/verify-email")               return <VerifyEmailPage />;
+  if (path === "/login")                      return <LoginPage />;
+  if (path === "/dashboard")                  return <DashboardPage />;
+  if (path === "/profile/setup/academic")     return <ProfileSetupAcademicPage />;
+  if (path === "/profile/setup/matching")     return <ProfileSetupMatchingPage />;
+  if (path === "/profile/setup/preferences")  return <ProfileSetupPreferencesPage />;
+  if (path === "/profile/setup/personal")     return <ProfileSetupPersonalPage />;
   return <RegisterPage />; // default
 }
 

@@ -30,7 +30,14 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      await loginUser({ email: normalizedEmail, password });
+      const result = await loginUser({ email: normalizedEmail, password });
+
+      // First-time users must complete profile setup before reaching the dashboard
+      if (result?.data?.nextStep === "complete_profile") {
+        window.location.href = "/profile/setup/academic";
+        return;
+      }
+
       window.location.href = "/dashboard";
     } catch (err: unknown) {
       const apiError = err as { code?: number; message?: string };
