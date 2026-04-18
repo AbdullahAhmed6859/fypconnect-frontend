@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState } from "react";
 import AuthCard from "../components/AuthCard";
 import InputField from "../components/InputField";
 import ErrorBanner from "../components/ErrorBanner";
-import { loginUser } from "../api/auth";
+import { loginUser, getMyProfile } from "../api/auth";
 
 export default function LoginPage() {
   const emailRef = useRef<HTMLInputElement>(null);
@@ -30,10 +30,13 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      const result = await loginUser({ email: normalizedEmail, password });
+      await loginUser({ email: normalizedEmail, password });
 
-      // First-time users must complete profile setup before reaching the dashboard
-      if (result?.data?.nextStep === "complete_profile") {
+      // After login, check if profile setup is complete
+      const profileRes = await getMyProfile();
+      const profileCompleted = profileRes?.data?.data?.profileCompleted;
+
+      if (!profileCompleted) {
         window.location.href = "/profile/setup/academic";
         return;
       }

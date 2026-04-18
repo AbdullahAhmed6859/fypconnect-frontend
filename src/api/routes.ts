@@ -16,3 +16,8 @@ export const dashboardRoutes = {
   matches: `${API_BASE_URL}/matches`,
   logout: `${API_BASE_URL}/auth/logout`,
 };
+
+export const profileRoutes = {
+  me: `${API_BASE_URL}/profile/me`,
+  setup: `${API_BASE_URL}/profile/setup`,
+};

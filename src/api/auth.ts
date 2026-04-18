@@ -1,4 +1,4 @@
-import { authRoutes } from "./routes";
+import { authRoutes, profileRoutes } from "./routes";
 
 export interface RegisterPayload {
   email: string;
@@ -38,6 +38,11 @@ export interface LoginData {
     email: string;
     verified: boolean;
   };
+}
+
+export interface MyProfileData {
+  profileCompleted: boolean;
+  [key: string]: unknown;
 }
 
 type ApiError = {
@@ -144,4 +149,14 @@ export async function getSessionUser(): Promise<ApiEnvelope<{ user: unknown }>> 
   });
 
   return handleResponse<{ user: unknown }>(res);
+}
+
+export async function getMyProfile(): Promise<ApiEnvelope<{ data: MyProfileData }>> {
+  const res = await fetch(profileRoutes.me, {
+    method: "GET",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  return handleResponse<{ data: MyProfileData }>(res);
 }

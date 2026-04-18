@@ -1,32 +1,12 @@
-import React, { useRef, useState, useMemo } from "react";
+import React, { useRef, useState, useMemo, useEffect } from "react";
+import { profileRoutes } from "../api/routes";
 
 /**
  * FYPConnect — Profile Setup Pages
- * Four separate exported page components, one file for now.
- * Split into individual files when ready:
- *   pages/ProfileSetupAcademicPage.tsx
- *   pages/ProfileSetupMatchingPage.tsx
- *   pages/ProfileSetupPreferencesPage.tsx
- *   pages/ProfileSetupPersonalPage.tsx
  *
- * ── App.tsx routes to add ────────────────────────────────────────────────────
- *   if (path === "/profile/setup/academic")    return <ProfileSetupAcademicPage />;
- *   if (path === "/profile/setup/matching")    return <ProfileSetupMatchingPage />;
- *   if (path === "/profile/setup/preferences") return <ProfileSetupPreferencesPage />;
- *   if (path === "/profile/setup/personal")    return <ProfileSetupPersonalPage />;
- *
- * ── LoginPage redirect patch ─────────────────────────────────────────────────
- *   const result = await loginUser({ email: normalizedEmail, password });
- *   if (result?.data?.nextStep === "complete_profile") {
- *     window.location.href = "/profile/setup/academic";
- *   } else {
- *     window.location.href = "/dashboard";
- *   }
- *
- * ── Architecture note ────────────────────────────────────────────────────────
- *   All 4 pages accumulate state client-side. ONE atomic POST /profile/setup
- *   fires only on "Complete Profile Setup" at the end of Section D.
- *   No partial saves — satisfies FR-4.
+ * State flows across pages via sessionStorage under the key "fypSetup".
+ * Nothing is saved to the DB until "Complete Profile Setup" on Section D.
+ * One atomic POST /profile/setup fires at the end.
  */
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -48,25 +28,49 @@ type MatchingData = {
 
 type PreferenceData = {
   preferredMajorIds: number[];
-  // id === -1 is a UI-only sentinel for "Same As Mine".
-  // Strip it and expand to the user's actual IDs before POST.
-  preferredSkillIds: number[];
-  preferredInterestIds: number[];
+  preferredSkillIds: number[];   // -1 = "Same As Mine" sentinel
+  preferredInterestIds: number[]; // -1 = "Same As Mine" sentinel
 };
 
 type PersonalData = {
-  profilePicture: File | null;
   bio: string;
   fypIdea: string;
-  // Stored as plain strings in UI.
-  // Mapped to { github?, linkedin?, portfolio? } before POST — see buildLinksPayload().
   links: string[];
   projects: { project_name: string; project_link: string }[];
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Dummy reference data
-//  Replace arrays with fetched data from GET /ref/majors, /ref/skills, /ref/interests
+//  sessionStorage helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+const STORAGE_KEY = "fypSetup";
+
+type SetupDraft = {
+  academic?: AcademicData;
+  matching?: MatchingData;
+  preferences?: PreferenceData;
+};
+
+function loadDraft(): SetupDraft {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveDraft(patch: Partial<SetupDraft>) {
+  const current = loadDraft();
+  sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ ...current, ...patch }));
+}
+
+function clearDraft() {
+  sessionStorage.removeItem(STORAGE_KEY);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Reference data (hardcoded — swap arrays for fetched data when endpoints exist)
 // ─────────────────────────────────────────────────────────────────────────────
 
 const YEARS: Option[] = [
@@ -101,7 +105,7 @@ const INTERESTS: Option[] = [
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  SetupShell — page wrapper that mirrors DashboardPage's nav + layout
+//  SetupShell
 // ─────────────────────────────────────────────────────────────────────────────
 
 function SetupShell({
@@ -112,7 +116,8 @@ function SetupShell({
   children: React.ReactNode;
 }) {
   async function handleLogout() {
-    // TODO: call logoutUser() from api/auth once available
+    await fetch("/api/v1/auth/logout", { method: "POST", credentials: "include" });
+    clearDraft();
     window.location.href = "/login";
   }
 
@@ -140,11 +145,9 @@ function SetupShell({
           background: #fff !important;
         }
         select option:checked { background: #ede4f8; }
-        /* Remove default listbox outline flash on Firefox */
         select[size]:focus { border-color: #5D3891 !important; }
       `}</style>
 
-      {/* Top nav — identical pattern to DashboardPage */}
       <nav style={sh.topnav}>
         <div style={sh.navBrand}>
           FYP<span style={{ color: "#F99417" }}>Connect</span>
@@ -159,18 +162,12 @@ function SetupShell({
         </button>
       </nav>
 
-      {/* Scrollable content area */}
       <div style={sh.body}>
         <div style={sh.card} className="setup-card">
-
-          {/* Warning banner — same orange as ErrorBanner.tsx */}
           <div style={sh.warnBanner}>
             Please note that no partial progress is saved until the setup is complete.
           </div>
-
-          {/* Section heading — Fraunces serif, purple underline, matches brand */}
           <h2 style={sh.sectionHeading}>{sectionLabel}</h2>
-
           {children}
         </div>
       </div>
@@ -179,7 +176,7 @@ function SetupShell({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  SearchableMultiSelect — used in Sections B and C
+//  SearchableMultiSelect
 // ─────────────────────────────────────────────────────────────────────────────
 
 function SearchableMultiSelect({
@@ -220,8 +217,6 @@ function SearchableMultiSelect({
   return (
     <div style={f.fieldBlock}>
       <label style={f.label}>{label}</label>
-
-      {/* Search bar */}
       <div style={f.searchBar}>
         <SearchIcon />
         <input
@@ -233,8 +228,6 @@ function SearchableMultiSelect({
         />
         <ChevronIcon />
       </div>
-
-      {/* Options list */}
       <div style={{ ...f.optionList, height: listHeight, overflowY: "auto" }}>
         {displayOptions.map((o) => {
           const sel = selectedIds.includes(o.id);
@@ -264,7 +257,7 @@ function SearchableMultiSelect({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  LabeledTextarea — bio / fyp idea, with word counter
+//  LabeledTextarea
 // ─────────────────────────────────────────────────────────────────────────────
 
 function LabeledTextarea({
@@ -294,10 +287,7 @@ function LabeledTextarea({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         rows={3}
-        style={{
-          ...f.textarea,
-          borderColor: over ? "#e74c3c" : "#E8E2E2",
-        }}
+        style={{ ...f.textarea, borderColor: over ? "#e74c3c" : "#E8E2E2" }}
       />
       <div style={{ ...f.wordCount, color: over ? "#e74c3c" : "#9999aa" }}>
         {wordCount}/{maxWords} words used
@@ -307,7 +297,7 @@ function LabeledTextarea({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Tiny inline SVGs
+//  Icons
 // ─────────────────────────────────────────────────────────────────────────────
 
 function SearchIcon() {
@@ -332,26 +322,40 @@ function AvatarPlaceholder() {
     <svg width="82" height="82" viewBox="0 0 82 82" fill="none">
       <circle cx="41" cy="41" r="37" stroke="#1a1a2e" strokeWidth="3" />
       <circle cx="41" cy="30" r="10" stroke="#1a1a2e" strokeWidth="3" />
-      <path
-        d="M20 58c4-9 13-14 21-14s17 5 21 14"
-        stroke="#1a1a2e"
-        strokeWidth="3"
-        strokeLinecap="round"
-      />
+      <path d="M20 58c4-9 13-14 21-14s17 5 21 14" stroke="#1a1a2e" strokeWidth="3" strokeLinecap="round" />
     </svg>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  PAGE A — Academic Identity  (mandatory)
+//  Links payload helper
+// ─────────────────────────────────────────────────────────────────────────────
+
+function buildLinksPayload(links: string[]) {
+  const result: { github?: string; linkedin?: string; portfolio?: string } = {};
+  for (const url of links) {
+    const u = url.trim().toLowerCase();
+    if (!u) continue;
+    if (u.includes("github") && !result.github) {
+      result.github = url.trim();
+    } else if (u.includes("linkedin") && !result.linkedin) {
+      result.linkedin = url.trim();
+    } else if (!result.portfolio) {
+      result.portfolio = url.trim();
+    }
+  }
+  return result;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  PAGE A — Academic Identity
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function ProfileSetupAcademicPage() {
-  const [form, setForm] = useState<AcademicData>({
-    fullName: "",
-    yearId: "",
-    majorId: "",
-  });
+  const draft = loadDraft();
+  const [form, setForm] = useState<AcademicData>(
+    draft.academic ?? { fullName: "", yearId: "", majorId: "" }
+  );
   const [error, setError] = useState<string | null>(null);
 
   const isRestricted =
@@ -371,15 +375,13 @@ export function ProfileSetupAcademicPage() {
       return;
     }
     setError(null);
-    // TODO: persist to shared state / context before navigating
+    saveDraft({ academic: form });
     window.location.href = "/profile/setup/matching";
   }
 
   return (
     <SetupShell sectionLabel="Section A: Academic Identity">
       <div style={f.form}>
-
-        {/* Full Name */}
         <div style={f.fieldBlock}>
           <label style={f.label}>Full Name</label>
           <input
@@ -392,7 +394,6 @@ export function ProfileSetupAcademicPage() {
           />
         </div>
 
-        {/* Year of Study */}
         <div style={f.fieldBlock}>
           <label style={f.label}>Year Of Study</label>
           <div style={f.selectWrap}>
@@ -412,7 +413,6 @@ export function ProfileSetupAcademicPage() {
           </div>
         </div>
 
-        {/* Major — listbox so all 6 options are visible per wireframe */}
         <div style={f.fieldBlock}>
           <label style={f.label}>Major</label>
           <select
@@ -429,7 +429,6 @@ export function ProfileSetupAcademicPage() {
           </select>
         </div>
 
-        {/* Browsing restriction note */}
         <p style={f.infoText}>
           Browsing and matching are available to Juniors and Seniors only.
           You can still set up your profile for later use.
@@ -442,7 +441,6 @@ export function ProfileSetupAcademicPage() {
           </div>
         )}
 
-        {/* Error banner — same style as ErrorBanner.tsx */}
         {error && (
           <div style={f.errorBanner} role="alert">{error}</div>
         )}
@@ -461,14 +459,14 @@ export function ProfileSetupAcademicPage() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  PAGE B — Matching Basis  (mandatory)
+//  PAGE B — Matching Basis
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function ProfileSetupMatchingPage() {
-  const [form, setForm] = useState<MatchingData>({
-    skillIds: [],
-    interestIds: [],
-  });
+  const draft = loadDraft();
+  const [form, setForm] = useState<MatchingData>(
+    draft.matching ?? { skillIds: [], interestIds: [] }
+  );
   const [error, setError] = useState<string | null>(null);
 
   const canProceed = form.skillIds.length > 0 && form.interestIds.length > 0;
@@ -479,13 +477,13 @@ export function ProfileSetupMatchingPage() {
       return;
     }
     setError(null);
+    saveDraft({ matching: form });
     window.location.href = "/profile/setup/preferences";
   }
 
   return (
     <SetupShell sectionLabel="Section B: Matching Basis">
       <div style={f.form}>
-
         <SearchableMultiSelect
           label="My Skills (Select All That Apply)"
           placeholder="Search skills"
@@ -531,27 +529,27 @@ export function ProfileSetupMatchingPage() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  PAGE C — Discovery Preferences  (optional)
+//  PAGE C — Discovery Preferences
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function ProfileSetupPreferencesPage() {
-  const [form, setForm] = useState<PreferenceData>({
-    preferredMajorIds: [],
-    preferredSkillIds: [],
-    preferredInterestIds: [],
-  });
+  const draft = loadDraft();
+  const [form, setForm] = useState<PreferenceData>(
+    draft.preferences ?? {
+      preferredMajorIds: [],
+      preferredSkillIds: [],
+      preferredInterestIds: [],
+    }
+  );
 
   function handleNext() {
-    // All fields are optional — navigate unconditionally.
-    // IMPORTANT: before POST /profile/setup, strip id === -1 and expand
-    // "Same As Mine" to the user's actual skillIds / interestIds from Section B.
+    saveDraft({ preferences: form });
     window.location.href = "/profile/setup/personal";
   }
 
   return (
     <SetupShell sectionLabel="Section C: Discovery Preferences (Optional)">
       <div style={f.form}>
-
         <SearchableMultiSelect
           label="Preferred Majors (Select All That Apply) (Optional)"
           placeholder="Search team members' majors"
@@ -600,30 +598,8 @@ export function ProfileSetupPreferencesPage() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  PAGE D — Personal Context  (optional)
+//  PAGE D — Personal Context + final submit
 // ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Links payload helper.
- * Your API expects { github?, linkedin?, portfolio? }, not a string array.
- * This heuristic maps entered URLs to the three supported keys.
- * First github URL → github, first linkedin URL → linkedin, first other → portfolio.
- */
-function buildLinksPayload(links: string[]) {
-  const result: { github?: string; linkedin?: string; portfolio?: string } = {};
-  for (const url of links) {
-    const u = url.trim().toLowerCase();
-    if (!u) continue;
-    if (u.includes("github") && !result.github) {
-      result.github = url.trim();
-    } else if (u.includes("linkedin") && !result.linkedin) {
-      result.linkedin = url.trim();
-    } else if (!result.portfolio) {
-      result.portfolio = url.trim();
-    }
-  }
-  return result;
-}
 
 export function ProfileSetupPersonalPage() {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -632,7 +608,6 @@ export function ProfileSetupPersonalPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [form, setForm] = useState<PersonalData>({
-    profilePicture: null,
     bio: "",
     fypIdea: "",
     links: ["www.github.com/johndoe"],
@@ -646,15 +621,11 @@ export function ProfileSetupPersonalPage() {
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setForm((p) => ({ ...p, profilePicture: file }));
     setPreviewUrl(URL.createObjectURL(file));
   }
 
   function updateLink(i: number, v: string) {
-    setForm((p) => ({
-      ...p,
-      links: p.links.map((l, idx) => (idx === i ? v : l)),
-    }));
+    setForm((p) => ({ ...p, links: p.links.map((l, idx) => (idx === i ? v : l)) }));
   }
 
   function removeLink(i: number) {
@@ -671,28 +642,84 @@ export function ProfileSetupPersonalPage() {
   }
 
   async function handleComplete() {
+    const draft = loadDraft();
+
+    const academic = draft.academic;
+    const matching = draft.matching;
+
+    // Guard: if somehow landed here without completing earlier sections
+    if (
+      !academic ||
+      !academic.fullName.trim() ||
+      academic.yearId === "" ||
+      academic.majorId === ""
+    ) {
+      setError("Missing academic info. Please go back to Section A.");
+      return;
+    }
+    if (!matching || matching.skillIds.length === 0 || matching.interestIds.length === 0) {
+      setError("Missing skills/interests. Please go back to Section B.");
+      return;
+    }
+
+    const preferences = draft.preferences ?? {
+      preferredMajorIds: [],
+      preferredSkillIds: [],
+      preferredInterestIds: [],
+    };
+
+    // Expand "Same As Mine" sentinel (id = -1) to the user's actual IDs from Section B
+    const resolvedPreferredSkillIds = preferences.preferredSkillIds.includes(-1)
+      ? [
+          ...matching.skillIds,
+          ...preferences.preferredSkillIds.filter((id) => id !== -1),
+        ]
+      : preferences.preferredSkillIds;
+
+    const resolvedPreferredInterestIds = preferences.preferredInterestIds.includes(-1)
+      ? [
+          ...matching.interestIds,
+          ...preferences.preferredInterestIds.filter((id) => id !== -1),
+        ]
+      : preferences.preferredInterestIds;
+
+    // Filter out empty projects
+    const cleanProjects = form.projects.filter((p) => p.project_name.trim());
+
+    const payload = {
+      fullName: academic.fullName.trim(),
+      yearId: academic.yearId as number,
+      majorId: academic.majorId as number,
+      skills: matching.skillIds,
+      interests: matching.interestIds,
+      preferredMajorIds: preferences.preferredMajorIds,
+      preferredSkillIds: resolvedPreferredSkillIds,
+      preferredInterestIds: resolvedPreferredInterestIds,
+      bio: form.bio.trim() || null,
+      fypIdea: form.fypIdea.trim() || null,
+      links: buildLinksPayload(form.links),
+      projects: cleanProjects,
+      profilePicture: null, // no upload endpoint yet
+    };
+
     setSubmitting(true);
     setError(null);
+
     try {
-      /**
-       * TODO: Gather Sections A–C from your state manager / context, then:
-       *
-       *   await setupProfile({
-       *     // Section A
-       *     fullName, yearId, majorId,
-       *     // Section B
-       *     skillIds, interestIds,
-       *     // Section C (strip id === -1, expand "Same As Mine" first)
-       *     preferredMajorIds, preferredSkillIds, preferredInterestIds,
-       *     // Section D
-       *     bio: form.bio,
-       *     fypIdea: form.fypIdea,
-       *     links: buildLinksPayload(form.links),   // → { github?, linkedin?, portfolio? }
-       *     projects: form.projects.filter(p => p.project_name.trim()),
-       *     profilePicture: form.profilePicture,    // send as multipart/form-data
-       *   });
-       */
-      console.log("Links payload preview:", buildLinksPayload(form.links));
+      const res = await fetch(profileRoutes.setup, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const json = await res.json().catch(() => null);
+
+      if (!res.ok) {
+        throw new Error(json?.message ?? "Profile setup failed. Please try again.");
+      }
+
+      clearDraft();
       window.location.href = "/dashboard";
     } catch (err: unknown) {
       const e = err as { message?: string };
@@ -706,7 +733,6 @@ export function ProfileSetupPersonalPage() {
     <SetupShell sectionLabel="Section D: Personal Context (Optional)">
       <div style={f.form}>
 
-        {/* Avatar */}
         <div style={f.avatarWrap}>
           {previewUrl ? (
             <img src={previewUrl} alt="Profile preview" style={f.avatarImg} />
@@ -734,7 +760,6 @@ export function ProfileSetupPersonalPage() {
           </button>
         </div>
 
-        {/* Bio */}
         <LabeledTextarea
           label="My Bio (Optional)"
           value={form.bio}
@@ -743,7 +768,6 @@ export function ProfileSetupPersonalPage() {
           placeholder="Tell potential teammates about yourself…"
         />
 
-        {/* FYP Idea */}
         <LabeledTextarea
           label="FYP/Thesis Idea (Optional)"
           value={form.fypIdea}
@@ -752,7 +776,6 @@ export function ProfileSetupPersonalPage() {
           placeholder="Describe your final year project idea…"
         />
 
-        {/* Links */}
         <div style={f.fieldBlock}>
           <label style={f.label}>My Links (Optional)</label>
           {form.links.map((link, i) => (
@@ -779,16 +802,13 @@ export function ProfileSetupPersonalPage() {
               type="button"
               className="setup-btn-sm"
               style={f.btnSm}
-              onClick={() =>
-                setForm((p) => ({ ...p, links: [...p.links, ""] }))
-              }
+              onClick={() => setForm((p) => ({ ...p, links: [...p.links, ""] }))}
             >
               Add Another Link
             </button>
           </div>
         </div>
 
-        {/* Projects table */}
         <div style={f.fieldBlock}>
           <label style={f.label}>Featured Projects (Optional)</label>
           <div style={f.tableWrap}>
@@ -821,10 +841,7 @@ export function ProfileSetupPersonalPage() {
               onClick={() =>
                 setForm((p) => ({
                   ...p,
-                  projects: [
-                    ...p.projects,
-                    { project_name: "", project_link: "" },
-                  ],
+                  projects: [...p.projects, { project_name: "", project_link: "" }],
                 }))
               }
             >
@@ -839,7 +856,6 @@ export function ProfileSetupPersonalPage() {
           <div style={f.errorBanner} role="alert">{error}</div>
         )}
 
-        {/* Final submit — one atomic save for all 4 sections */}
         <button
           type="button"
           className="setup-btn-primary"
@@ -860,7 +876,7 @@ export function ProfileSetupPersonalPage() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Shell styles  (mirrors DashboardPage nav/layout)
+//  Shell styles
 // ─────────────────────────────────────────────────────────────────────────────
 
 const sh: Record<string, React.CSSProperties> = {
@@ -920,7 +936,6 @@ const sh: Record<string, React.CSSProperties> = {
     boxShadow: "0 8px 40px rgba(93,56,145,0.12)",
     border: "1px solid #E8E2E2",
   },
-  // Warning banner uses the same orange as ErrorBanner.tsx (--error-bg: #F99417)
   warnBanner: {
     background: "#F99417",
     color: "#ffffff",
@@ -947,19 +962,12 @@ const sh: Record<string, React.CSSProperties> = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Form element styles — exact same design tokens as inputfield.tsx / loginpage.tsx
+//  Form element styles
 // ─────────────────────────────────────────────────────────────────────────────
 
 const f: Record<string, React.CSSProperties> = {
-  form: {
-    display: "flex",
-    flexDirection: "column",
-  },
-
-  // Field wrapper
-  fieldBlock: {
-    marginBottom: "20px",
-  },
+  form: { display: "flex", flexDirection: "column" },
+  fieldBlock: { marginBottom: "20px" },
   label: {
     display: "block",
     fontSize: "13px",
@@ -968,8 +976,6 @@ const f: Record<string, React.CSSProperties> = {
     letterSpacing: "0.1px",
     marginBottom: "7px",
   },
-
-  // Text input — same as InputField.tsx
   input: {
     width: "100%",
     padding: "11px 14px",
@@ -983,13 +989,7 @@ const f: Record<string, React.CSSProperties> = {
     transition: "border-color 0.15s ease, box-shadow 0.15s ease",
     boxSizing: "border-box",
   },
-
-  // Dropdown select with custom chevron
-  selectWrap: {
-    position: "relative",
-    display: "flex",
-    alignItems: "center",
-  },
+  selectWrap: { position: "relative", display: "flex", alignItems: "center" },
   select: {
     width: "100%",
     padding: "11px 36px 11px 14px",
@@ -1011,8 +1011,6 @@ const f: Record<string, React.CSSProperties> = {
     display: "flex",
     alignItems: "center",
   },
-
-  // Major listbox — visible size=6 per wireframe
   listbox: {
     width: "100%",
     border: "1.5px solid #E8E2E2",
@@ -1026,8 +1024,6 @@ const f: Record<string, React.CSSProperties> = {
     cursor: "pointer",
     transition: "border-color 0.15s ease, box-shadow 0.15s ease",
   },
-
-  // Searchable multi-select
   searchBar: {
     display: "flex",
     alignItems: "center",
@@ -1067,25 +1063,14 @@ const f: Record<string, React.CSSProperties> = {
     cursor: "pointer",
     transition: "background 0.1s ease",
   },
-  noResults: {
-    padding: "10px 12px",
-    fontSize: "13px",
-    color: "#9999aa",
-  },
-
-  // Textarea with label + horizontal line (Section D)
+  noResults: { padding: "10px 12px", fontSize: "13px", color: "#9999aa" },
   labelLineRow: {
     display: "flex",
     alignItems: "center",
     gap: "10px",
     marginBottom: "0",
   },
-  horizRule: {
-    flex: 1,
-    height: "1px",
-    background: "#6b6b7b",
-    opacity: 0.3,
-  },
+  horizRule: { flex: 1, height: "1px", background: "#6b6b7b", opacity: 0.3 },
   textarea: {
     width: "100%",
     padding: "10px 14px",
@@ -1110,8 +1095,6 @@ const f: Record<string, React.CSSProperties> = {
     fontStyle: "italic",
     transition: "color 0.15s ease",
   },
-
-  // Info / helper text
   infoText: {
     fontSize: "13px",
     color: "#6b6b7b",
@@ -1139,8 +1122,6 @@ const f: Record<string, React.CSSProperties> = {
     border: "1px solid #ddd3eb",
     fontWeight: 500,
   },
-
-  // Error — identical to ErrorBanner.tsx
   errorBanner: {
     background: "#F99417",
     color: "#ffffff",
@@ -1152,8 +1133,6 @@ const f: Record<string, React.CSSProperties> = {
     lineHeight: "1.4",
     animation: "fadeIn 0.2s ease",
   },
-
-  // Primary button — same purple fill as loginpage.tsx submit
   btnPrimary: {
     display: "block",
     width: "100%",
@@ -1169,8 +1148,6 @@ const f: Record<string, React.CSSProperties> = {
     transition: "background 0.15s ease",
     marginTop: "4px",
   },
-
-  // Outline button — used for inter-section navigation
   btnOutline: {
     display: "block",
     margin: "0 auto",
@@ -1186,8 +1163,6 @@ const f: Record<string, React.CSSProperties> = {
     cursor: "pointer",
     transition: "background 0.15s ease, border-color 0.15s ease",
   },
-
-  // Small secondary button — "Add Another Link / Project", "Upload Picture"
   btnSm: {
     padding: "8px 16px",
     border: "1.5px solid #E8E2E2",
@@ -1200,13 +1175,7 @@ const f: Record<string, React.CSSProperties> = {
     cursor: "pointer",
     transition: "background 0.15s ease",
   },
-
-  // Avatar
-  avatarWrap: {
-    display: "flex",
-    justifyContent: "center",
-    marginBottom: "14px",
-  },
+  avatarWrap: { display: "flex", justifyContent: "center", marginBottom: "14px" },
   avatarImg: {
     width: "82px",
     height: "82px",
@@ -1214,12 +1183,7 @@ const f: Record<string, React.CSSProperties> = {
     objectFit: "cover",
     border: "2px solid #ddd3eb",
   },
-
-  // Link row
-  linkRow: {
-    position: "relative",
-    marginBottom: "10px",
-  },
+  linkRow: { position: "relative", marginBottom: "10px" },
   removeLinkBtn: {
     position: "absolute",
     right: "10px",
@@ -1238,13 +1202,7 @@ const f: Record<string, React.CSSProperties> = {
     justifyContent: "center",
     padding: 0,
   },
-  rightAlign: {
-    display: "flex",
-    justifyContent: "flex-end",
-    marginTop: "8px",
-  },
-
-  // Projects table
+  rightAlign: { display: "flex", justifyContent: "flex-end", marginTop: "8px" },
   tableWrap: {
     border: "1.5px solid #E8E2E2",
     borderRadius: "8px",
@@ -1272,10 +1230,7 @@ const f: Record<string, React.CSSProperties> = {
     color: "#5D3891",
     textAlign: "center",
   },
-  tableRow: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1.5fr",
-  },
+  tableRow: { display: "grid", gridTemplateColumns: "1fr 1.5fr" },
   tableInputLeft: {
     border: "none",
     borderRight: "1.5px solid #E8E2E2",
