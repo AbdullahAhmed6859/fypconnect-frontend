@@ -1,5 +1,10 @@
 import React, { useRef, useState, useMemo, useEffect } from "react";
-import { profileRoutes } from "../api/routes";
+import {
+  getProfileSetupOptions,
+  logoutUser,
+  setupProfile,
+  type ProfileSetupOptions,
+} from "../api/auth";
 
 /**
  * FYPConnect — Profile Setup Pages
@@ -28,8 +33,8 @@ type MatchingData = {
 
 type PreferenceData = {
   preferredMajorIds: number[];
-  preferredSkillIds: number[];   // -1 = "Same As Mine" sentinel
-  preferredInterestIds: number[]; // -1 = "Same As Mine" sentinel
+  preferredSkillIds: number[];
+  preferredInterestIds: number[];
 };
 
 type PersonalData = {
@@ -70,39 +75,62 @@ function clearDraft() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Reference data (hardcoded — swap arrays for fetched data when endpoints exist)
+//  Reference data loaded from the database
 // ─────────────────────────────────────────────────────────────────────────────
 
-const YEARS: Option[] = [
-  { id: 1, label: "Freshman" },
-  { id: 2, label: "Sophomore" },
-  { id: 3, label: "Junior" },
-  { id: 4, label: "Senior/Super Senior" },
-];
+const EMPTY_OPTIONS: ProfileSetupOptions = {
+  years: [],
+  majors: [],
+  skills: [],
+  interests: [],
+};
 
-const MAJORS: Option[] = [
-  { id: 1, label: "CND: Communication and Design" },
-  { id: 2, label: "CH: Comparative Humanities" },
-  { id: 3, label: "CE: Computer Engineering" },
-  { id: 4, label: "CS: Computer Science" },
-  { id: 5, label: "EE: Electrical Engineering" },
-  { id: 6, label: "SDP: Social Development and Policy" },
-];
+function useSetupOptions() {
+  const [options, setOptions] = useState<ProfileSetupOptions>(EMPTY_OPTIONS);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-const SKILLS: Option[] = [
-  { id: 1, label: "Python" },
-  { id: 2, label: "Machine Learning" },
-  { id: 3, label: "Web Development" },
-  { id: 4, label: "Data Science" },
-  { id: 5, label: "UI/UX Design" },
-];
+  useEffect(() => {
+    let active = true;
 
-const INTERESTS: Option[] = [
-  { id: 1, label: "AI Research" },
-  { id: 2, label: "Mobile Apps" },
-  { id: 3, label: "Game Development" },
-  { id: 4, label: "Robotics" },
-];
+    async function loadOptions() {
+      try {
+        const data = await getProfileSetupOptions();
+        if (!active) return;
+
+        const hasRequiredData =
+          data.years.length > 0 &&
+          data.majors.length > 0 &&
+          data.skills.length > 0 &&
+          data.interests.length > 0;
+
+        if (!hasRequiredData) {
+          setError("Profile setup reference data is missing in the database.");
+          return;
+        }
+
+        setOptions(data);
+      } catch (err: unknown) {
+        const apiError = err as { message?: string };
+        if (active) {
+          setError(apiError.message ?? "Could not load profile setup data.");
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadOptions();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return { options, loading, error };
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  SetupShell
@@ -116,9 +144,12 @@ function SetupShell({
   children: React.ReactNode;
 }) {
   async function handleLogout() {
-    await fetch("/api/v1/auth/logout", { method: "POST", credentials: "include" });
-    clearDraft();
-    window.location.href = "/login";
+    try {
+      await logoutUser();
+    } finally {
+      clearDraft();
+      window.location.href = "/login";
+    }
   }
 
   return (
@@ -179,13 +210,33 @@ function SetupShell({
 //  SearchableMultiSelect
 // ─────────────────────────────────────────────────────────────────────────────
 
+function SetupDataState({
+  sectionLabel,
+  loading,
+  error,
+}: {
+  sectionLabel: string;
+  loading: boolean;
+  error: string | null;
+}) {
+  if (!loading && !error) return null;
+
+  return (
+    <SetupShell sectionLabel={sectionLabel}>
+      <div style={f.form}>
+        {loading && <p style={f.helperText}>Loading setup data...</p>}
+        {error && <div style={f.errorBanner} role="alert">{error}</div>}
+      </div>
+    </SetupShell>
+  );
+}
+
 function SearchableMultiSelect({
   label,
   placeholder,
   options,
   selectedIds,
   onChange,
-  sameAsMineLabel,
   listHeight = 132,
 }: {
   label: string;
@@ -193,18 +244,15 @@ function SearchableMultiSelect({
   options: Option[];
   selectedIds: number[];
   onChange: (ids: number[]) => void;
-  sameAsMineLabel?: string;
   listHeight?: number;
 }) {
   const [query, setQuery] = useState("");
 
   const displayOptions = useMemo<Option[]>(() => {
-    const filtered = options.filter((o) =>
+    return options.filter((o) =>
       o.label.toLowerCase().includes(query.toLowerCase())
     );
-    if (!sameAsMineLabel) return filtered;
-    return [{ id: -1, label: sameAsMineLabel }, ...filtered];
-  }, [options, query, sameAsMineLabel]);
+  }, [options, query]);
 
   function toggle(id: number) {
     if (selectedIds.includes(id)) {
@@ -352,14 +400,16 @@ function buildLinksPayload(links: string[]) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function ProfileSetupAcademicPage() {
+  const { options, loading, error: optionsError } = useSetupOptions();
   const draft = loadDraft();
   const [form, setForm] = useState<AcademicData>(
     draft.academic ?? { fullName: "", yearId: "", majorId: "" }
   );
   const [error, setError] = useState<string | null>(null);
 
+  const selectedYear = options.years.find((year) => year.id === form.yearId);
   const isRestricted =
-    form.yearId !== "" && (form.yearId === 1 || form.yearId === 2);
+    selectedYear?.value !== undefined && selectedYear.value <= 2;
 
   function handleNext() {
     if (!form.fullName.trim()) {
@@ -379,6 +429,16 @@ export function ProfileSetupAcademicPage() {
     window.location.href = "/profile/setup/matching";
   }
 
+  if (loading || optionsError) {
+    return (
+      <SetupDataState
+        sectionLabel="Section A: Academic Identity"
+        loading={loading}
+        error={optionsError}
+      />
+    );
+  }
+
   return (
     <SetupShell sectionLabel="Section A: Academic Identity">
       <div style={f.form}>
@@ -386,7 +446,7 @@ export function ProfileSetupAcademicPage() {
           <label style={f.label}>Full Name</label>
           <input
             type="text"
-            placeholder="e.g John Doe"
+            placeholder="Your full name"
             value={form.fullName}
             onChange={(e) => setForm((p) => ({ ...p, fullName: e.target.value }))}
             style={f.input}
@@ -405,7 +465,7 @@ export function ProfileSetupAcademicPage() {
               style={f.select}
             >
               <option value="" disabled>Select year…</option>
-              {YEARS.map((y) => (
+              {options.years.map((y) => (
                 <option key={y.id} value={y.id}>{y.label}</option>
               ))}
             </select>
@@ -423,7 +483,7 @@ export function ProfileSetupAcademicPage() {
             size={6}
             style={f.listbox}
           >
-            {MAJORS.map((m) => (
+            {options.majors.map((m) => (
               <option key={m.id} value={m.id}>{m.label}</option>
             ))}
           </select>
@@ -463,6 +523,7 @@ export function ProfileSetupAcademicPage() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function ProfileSetupMatchingPage() {
+  const { options, loading, error: optionsError } = useSetupOptions();
   const draft = loadDraft();
   const [form, setForm] = useState<MatchingData>(
     draft.matching ?? { skillIds: [], interestIds: [] }
@@ -481,13 +542,23 @@ export function ProfileSetupMatchingPage() {
     window.location.href = "/profile/setup/preferences";
   }
 
+  if (loading || optionsError) {
+    return (
+      <SetupDataState
+        sectionLabel="Section B: Matching Basis"
+        loading={loading}
+        error={optionsError}
+      />
+    );
+  }
+
   return (
     <SetupShell sectionLabel="Section B: Matching Basis">
       <div style={f.form}>
         <SearchableMultiSelect
           label="My Skills (Select All That Apply)"
           placeholder="Search skills"
-          options={SKILLS}
+          options={options.skills}
           selectedIds={form.skillIds}
           onChange={(ids) => setForm((p) => ({ ...p, skillIds: ids }))}
           listHeight={132}
@@ -496,7 +567,7 @@ export function ProfileSetupMatchingPage() {
         <SearchableMultiSelect
           label="My Interests (Select All That Apply)"
           placeholder="Search interests"
-          options={INTERESTS}
+          options={options.interests}
           selectedIds={form.interestIds}
           onChange={(ids) => setForm((p) => ({ ...p, interestIds: ids }))}
           listHeight={110}
@@ -533,6 +604,7 @@ export function ProfileSetupMatchingPage() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function ProfileSetupPreferencesPage() {
+  const { options, loading, error: optionsError } = useSetupOptions();
   const draft = loadDraft();
   const [form, setForm] = useState<PreferenceData>(
     draft.preferences ?? {
@@ -547,13 +619,23 @@ export function ProfileSetupPreferencesPage() {
     window.location.href = "/profile/setup/personal";
   }
 
+  if (loading || optionsError) {
+    return (
+      <SetupDataState
+        sectionLabel="Section C: Discovery Preferences (Optional)"
+        loading={loading}
+        error={optionsError}
+      />
+    );
+  }
+
   return (
     <SetupShell sectionLabel="Section C: Discovery Preferences (Optional)">
       <div style={f.form}>
         <SearchableMultiSelect
           label="Preferred Majors (Select All That Apply) (Optional)"
           placeholder="Search team members' majors"
-          options={MAJORS}
+          options={options.majors}
           selectedIds={form.preferredMajorIds}
           onChange={(ids) => setForm((p) => ({ ...p, preferredMajorIds: ids }))}
           listHeight={148}
@@ -562,20 +644,18 @@ export function ProfileSetupPreferencesPage() {
         <SearchableMultiSelect
           label="Preferred Skills (Select All That Apply) (Optional)"
           placeholder="Search skills that you're looking for"
-          options={SKILLS}
+          options={options.skills}
           selectedIds={form.preferredSkillIds}
           onChange={(ids) => setForm((p) => ({ ...p, preferredSkillIds: ids }))}
-          sameAsMineLabel="Same Skills As Mine."
           listHeight={155}
         />
 
         <SearchableMultiSelect
           label="Preferred Interests (Select All That Apply) (Optional)"
           placeholder="Search interests that you're looking for"
-          options={INTERESTS}
+          options={options.interests}
           selectedIds={form.preferredInterestIds}
           onChange={(ids) => setForm((p) => ({ ...p, preferredInterestIds: ids }))}
-          sameAsMineLabel="Same Interests As Mine."
           listHeight={112}
         />
 
@@ -610,7 +690,7 @@ export function ProfileSetupPersonalPage() {
   const [form, setForm] = useState<PersonalData>({
     bio: "",
     fypIdea: "",
-    links: ["www.github.com/johndoe"],
+    links: [""],
     projects: [
       { project_name: "", project_link: "" },
       { project_name: "", project_link: "" },
@@ -668,21 +748,6 @@ export function ProfileSetupPersonalPage() {
       preferredInterestIds: [],
     };
 
-    // Expand "Same As Mine" sentinel (id = -1) to the user's actual IDs from Section B
-    const resolvedPreferredSkillIds = preferences.preferredSkillIds.includes(-1)
-      ? [
-          ...matching.skillIds,
-          ...preferences.preferredSkillIds.filter((id) => id !== -1),
-        ]
-      : preferences.preferredSkillIds;
-
-    const resolvedPreferredInterestIds = preferences.preferredInterestIds.includes(-1)
-      ? [
-          ...matching.interestIds,
-          ...preferences.preferredInterestIds.filter((id) => id !== -1),
-        ]
-      : preferences.preferredInterestIds;
-
     // Filter out empty projects
     const cleanProjects = form.projects.filter((p) => p.project_name.trim());
 
@@ -693,8 +758,8 @@ export function ProfileSetupPersonalPage() {
       skills: matching.skillIds,
       interests: matching.interestIds,
       preferredMajorIds: preferences.preferredMajorIds,
-      preferredSkillIds: resolvedPreferredSkillIds,
-      preferredInterestIds: resolvedPreferredInterestIds,
+      preferredSkillIds: preferences.preferredSkillIds,
+      preferredInterestIds: preferences.preferredInterestIds,
       bio: form.bio.trim() || null,
       fypIdea: form.fypIdea.trim() || null,
       links: buildLinksPayload(form.links),
@@ -706,19 +771,7 @@ export function ProfileSetupPersonalPage() {
     setError(null);
 
     try {
-      const res = await fetch(profileRoutes.setup, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const json = await res.json().catch(() => null);
-
-      if (!res.ok) {
-        throw new Error(json?.message ?? "Profile setup failed. Please try again.");
-      }
-
+      await setupProfile(payload);
       clearDraft();
       window.location.href = "/dashboard";
     } catch (err: unknown) {
@@ -785,7 +838,7 @@ export function ProfileSetupPersonalPage() {
                 value={link}
                 onChange={(e) => updateLink(i, e.target.value)}
                 style={{ ...f.input, paddingRight: "40px", marginBottom: 0 }}
-                placeholder="e.g https://github.com/username"
+                placeholder="Profile or portfolio URL"
               />
               <button
                 type="button"
