@@ -81,6 +81,7 @@ export interface SetupOption {
   id: number;
   label: string;
   value?: number;
+  userCount?: number;
 }
 
 interface RawSetupOption {
@@ -88,6 +89,7 @@ interface RawSetupOption {
   label?: string;
   name?: string;
   value?: number;
+  userCount?: number;
 }
 
 export interface ProfileSetupOptions {
@@ -279,5 +281,6 @@ function normalizeSetupOptions(options: RawSetupOption[]): SetupOption[] {
     id: option.id,
     label: option.label ?? option.name ?? String(option.id),
     value: option.value,
+    userCount: option.userCount,
   }));
 }

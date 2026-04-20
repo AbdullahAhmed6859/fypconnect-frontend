@@ -18,7 +18,7 @@ import {
 //  Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-type Option = { id: number; label: string };
+type Option = { id: number; label: string; userCount?: number };
 
 type AcademicData = {
   fullName: string;
@@ -237,6 +237,7 @@ function SearchableMultiSelect({
   options,
   selectedIds,
   onChange,
+  countKind,
   listHeight = 132,
 }: {
   label: string;
@@ -244,6 +245,7 @@ function SearchableMultiSelect({
   options: Option[];
   selectedIds: number[];
   onChange: (ids: number[]) => void;
+  countKind?: "skill" | "interest";
   listHeight?: number;
 }) {
   const [query, setQuery] = useState("");
@@ -292,7 +294,13 @@ function SearchableMultiSelect({
                 color: sel ? "#5D3891" : "#1a1a2e",
               }}
             >
-              {o.label}
+              <span>{o.label}</span>
+              {countKind && o.userCount !== undefined && (
+                <span style={f.optionCount}>
+                  {" "}
+                  ({o.userCount} {o.userCount === 1 ? "user" : "users"} share this {countKind})
+                </span>
+              )}
             </button>
           );
         })}
@@ -561,6 +569,7 @@ export function ProfileSetupMatchingPage() {
           options={options.skills}
           selectedIds={form.skillIds}
           onChange={(ids) => setForm((p) => ({ ...p, skillIds: ids }))}
+          countKind="skill"
           listHeight={132}
         />
 
@@ -570,6 +579,7 @@ export function ProfileSetupMatchingPage() {
           options={options.interests}
           selectedIds={form.interestIds}
           onChange={(ids) => setForm((p) => ({ ...p, interestIds: ids }))}
+          countKind="interest"
           listHeight={110}
         />
 
@@ -647,6 +657,7 @@ export function ProfileSetupPreferencesPage() {
           options={options.skills}
           selectedIds={form.preferredSkillIds}
           onChange={(ids) => setForm((p) => ({ ...p, preferredSkillIds: ids }))}
+          countKind="skill"
           listHeight={155}
         />
 
@@ -656,6 +667,7 @@ export function ProfileSetupPreferencesPage() {
           options={options.interests}
           selectedIds={form.preferredInterestIds}
           onChange={(ids) => setForm((p) => ({ ...p, preferredInterestIds: ids }))}
+          countKind="interest"
           listHeight={112}
         />
 
@@ -1115,6 +1127,12 @@ const f: Record<string, React.CSSProperties> = {
     fontFamily: "'DM Sans', sans-serif",
     cursor: "pointer",
     transition: "background 0.1s ease",
+  },
+  optionCount: {
+    fontSize: "12px",
+    fontStyle: "italic",
+    fontWeight: 400,
+    color: "#7b7288",
   },
   noResults: { padding: "10px 12px", fontSize: "13px", color: "#9999aa" },
   labelLineRow: {
