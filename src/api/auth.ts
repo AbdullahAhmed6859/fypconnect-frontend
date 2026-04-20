@@ -1,4 +1,4 @@
-import { authRoutes } from "./routes";
+import { authRoutes, profileRoutes } from "./routes";
 
 export interface RegisterPayload {
   email: string;
@@ -38,6 +38,63 @@ export interface LoginData {
     email: string;
     verified: boolean;
   };
+}
+
+export interface MyProfileData {
+  profileCompleted: boolean;
+  [key: string]: unknown;
+}
+
+export interface ProfileSetupPayload {
+  fullName: string;
+  yearId: number;
+  majorId: number;
+  skills: number[];
+  interests: number[];
+  preferredMajorIds: number[];
+  preferredSkillIds: number[];
+  preferredInterestIds: number[];
+  bio: string | null;
+  fypIdea: string | null;
+  links: {
+    github?: string;
+    linkedin?: string;
+    portfolio?: string;
+  };
+  projects: {
+    project_name: string;
+    project_link?: string | null;
+  }[];
+  profilePicture: string | null;
+}
+
+export interface ProfileSetupData {
+  message: string;
+  data: {
+    profileId: number;
+    profileCompleted: boolean;
+    eligibleForBrowsing: boolean;
+  };
+}
+
+export interface SetupOption {
+  id: number;
+  label: string;
+  value?: number;
+}
+
+interface RawSetupOption {
+  id: number;
+  label?: string;
+  name?: string;
+  value?: number;
+}
+
+export interface ProfileSetupOptions {
+  years: SetupOption[];
+  majors: SetupOption[];
+  skills: SetupOption[];
+  interests: SetupOption[];
 }
 
 type ApiError = {
@@ -144,4 +201,83 @@ export async function getSessionUser(): Promise<ApiEnvelope<{ user: unknown }>> 
   });
 
   return handleResponse<{ user: unknown }>(res);
+}
+
+export async function getMyProfile(): Promise<ApiEnvelope<{ data: MyProfileData }>> {
+  const res = await fetch(profileRoutes.me, {
+    method: "GET",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  return handleResponse<{ data: MyProfileData }>(res);
+}
+
+export function unwrapMyProfile(
+  envelope: ApiEnvelope<{ data: MyProfileData } | MyProfileData>
+): MyProfileData | null {
+  const data = envelope.data;
+  if (!data) return null;
+
+  if ("profileCompleted" in data) {
+    return data;
+  }
+
+  return data.data;
+}
+
+export async function getProfileStatus(): Promise<{ profileCompleted: boolean }> {
+  const profile = unwrapMyProfile(await getMyProfile());
+
+  return {
+    profileCompleted: Boolean(profile?.profileCompleted),
+  };
+}
+
+export async function setupProfile(
+  payload: ProfileSetupPayload
+): Promise<ApiEnvelope<ProfileSetupData>> {
+  const res = await fetch(profileRoutes.setup, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  return handleResponse<ProfileSetupData>(res);
+}
+
+export async function getProfileSetupOptions(): Promise<ProfileSetupOptions> {
+  const res = await fetch(profileRoutes.setupOptions, {
+    method: "GET",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  const envelope = await handleResponse<
+    { data: Record<keyof ProfileSetupOptions, RawSetupOption[]> } |
+    Record<keyof ProfileSetupOptions, RawSetupOption[]>
+  >(res);
+  const data = envelope.data;
+
+  if (!data) {
+    throw { code: 500, message: "Profile setup options were not returned." } as ApiError;
+  }
+
+  const rawOptions = "years" in data ? data : data.data;
+
+  return {
+    years: normalizeSetupOptions(rawOptions.years),
+    majors: normalizeSetupOptions(rawOptions.majors),
+    skills: normalizeSetupOptions(rawOptions.skills),
+    interests: normalizeSetupOptions(rawOptions.interests),
+  };
+}
+
+function normalizeSetupOptions(options: RawSetupOption[]): SetupOption[] {
+  return options.map((option) => ({
+    id: option.id,
+    label: option.label ?? option.name ?? String(option.id),
+    value: option.value,
+  }));
 }

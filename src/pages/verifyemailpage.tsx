@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from "react";
-import AuthCard from "../components/AuthCard";
-import ErrorBanner from "../components/ErrorBanner";
+import AuthCard from "../components/authcard";
+import ErrorBanner from "../components/errorbanner";
 import { verifyEmail, resendVerification } from "../api/auth";
 
 const CODE_LENGTH = 6;

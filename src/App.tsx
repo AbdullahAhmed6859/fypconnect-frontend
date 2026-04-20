@@ -1,15 +1,97 @@
+import { useEffect, useState, type ReactNode } from "react";
 import "./styles/global.css";
-import RegisterPage from "./pages/RegisterPage";
-import VerifyEmailPage from "./pages/VerifyEmailPage";
-import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/registerpage";
+import VerifyEmailPage from "./pages/verifyemailpage";
+import LoginPage from "./pages/loginpage";
 import DashboardPage from "./pages/DashboardPage";
+import {
+  ProfileSetupAcademicPage,
+  ProfileSetupMatchingPage,
+  ProfileSetupPreferencesPage,
+  ProfileSetupPersonalPage,
+} from "./pages/Profilesetuppages";
+import { getProfileStatus } from "./api/auth";
+
+type GuardMode = "dashboard" | "setup";
+
+const SETUP_START_PATH = "/profile/setup/academic";
+
+function LoadingScreen() {
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "grid",
+        placeItems: "center",
+        fontFamily: "'DM Sans', sans-serif",
+        color: "#5D3891",
+        background: "#F5F5F5",
+        fontWeight: 600,
+      }}
+    >
+      Loading...
+    </div>
+  );
+}
+
+function AuthenticatedRoute({
+  mode,
+  children,
+}: {
+  mode: GuardMode;
+  children: ReactNode;
+}) {
+  const [allowed, setAllowed] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    async function checkAccess() {
+      try {
+        const { profileCompleted } = await getProfileStatus();
+
+        if (!active) return;
+
+        if (mode === "dashboard" && !profileCompleted) {
+          window.location.replace(SETUP_START_PATH);
+          return;
+        }
+
+        if (mode === "setup" && profileCompleted) {
+          window.location.replace("/dashboard");
+          return;
+        }
+
+        setAllowed(true);
+      } catch {
+        if (active) {
+          window.location.replace("/login");
+        }
+      }
+    }
+
+    void checkAccess();
+
+    return () => {
+      active = false;
+    };
+  }, [mode]);
+
+  if (!allowed) return <LoadingScreen />;
+
+  return <>{children}</>;
+}
 
 // Simple client-side router — replace with React Router once backend routing is set up
 function getPage() {
   const path = window.location.pathname;
-  if (path === "/verify-email") return <VerifyEmailPage />;
-  if (path === "/login")        return <LoginPage />;
-  if (path === "/dashboard")    return <DashboardPage />;
+  if (path === "/verify-email")               return <VerifyEmailPage />;
+  if (path === "/login")                      return <LoginPage />;
+  if (path === "/dashboard")                  return <AuthenticatedRoute mode="dashboard"><DashboardPage /></AuthenticatedRoute>;
+  if (path === "/profile/setup/academic")     return <AuthenticatedRoute mode="setup"><ProfileSetupAcademicPage /></AuthenticatedRoute>;
+  if (path === "/profile/setup/matching")     return <AuthenticatedRoute mode="setup"><ProfileSetupMatchingPage /></AuthenticatedRoute>;
+  if (path === "/profile/setup/preferences")  return <AuthenticatedRoute mode="setup"><ProfileSetupPreferencesPage /></AuthenticatedRoute>;
+  if (path === "/profile/setup/personal")     return <AuthenticatedRoute mode="setup"><ProfileSetupPersonalPage /></AuthenticatedRoute>;
   return <RegisterPage />; // default
 }
 

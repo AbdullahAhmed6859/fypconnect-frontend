@@ -67,12 +67,18 @@ export async function fetchMatches(): Promise<MatchedPerson[]> {
     name: m.matchedUser.fullName,
     major: m.matchedUser.major,
     year: m.matchedUser.yearOfStudy,
+    skills: m.matchedUser.skills ?? [],
+    interests: m.matchedUser.interests ?? [],
+    bio: m.matchedUser.bio,
+    fypIdea: m.matchedUser.fypIdea,
     profilePicture: m.matchedUser.profilePicture,
     lastMessagePreview: m.lastMessagePreview,
     hasUnreadMessages: m.hasUnreadMessages,
     isNewMatch: m.isNewMatch,
     hasProfileUpdated: m.hasProfileUpdated,
-  })) as MatchedPerson[];
+    matchStatus: m.isMutual ? "MUTUAL LIKE!" : "LIKED YOUR PROFILE!",
+    hasExistingChat: Boolean(m.hasExistingChat),
+  }));
 }
 
 export async function likeProfile(targetUserId: number): Promise<{ isMutualMatch: boolean }> {

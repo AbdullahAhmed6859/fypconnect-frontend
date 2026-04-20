@@ -5,17 +5,25 @@ export interface Profile {
   name: string;
   major: string;
   year: string;
+  profilePicture?: string | null;
   fypIdea?: string;
   bio?: string;
   skills: string[];
   interests: string[];
+  projects?: unknown[];
+  links?: Record<string, string>;
 }
 
 export interface MatchedPerson extends Profile {
+  matchId?: number;
   // Status label shown in the left panel list
   matchStatus: "LIKED YOUR PROFILE!" | "MUTUAL LIKE!";
   // Whether this person already has a chat thread with the current user
   hasExistingChat: boolean;
+  lastMessagePreview?: string | null;
+  hasUnreadMessages?: boolean;
+  isNewMatch?: boolean;
+  hasProfileUpdated?: boolean;
 }
 
 export interface ChatMessage {

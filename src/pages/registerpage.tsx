@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from "react";
-import AuthCard from "../components/AuthCard";
-import InputField from "../components/InputField";
-import ErrorBanner from "../components/ErrorBanner";
+import AuthCard from "../components/authcard";
+import InputField from "../components/inputfield";
+import ErrorBanner from "../components/errorbanner";
 import { registerUser } from "../api/auth";
 
 export default function RegisterPage() {
