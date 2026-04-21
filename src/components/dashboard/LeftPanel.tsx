@@ -6,8 +6,8 @@ type ActiveTab = "chats" | "matches";
 interface LeftPanelProps {
   activeTab: ActiveTab;
   onTabChange: (tab: ActiveTab) => void;
-  // Matches tab
-  pendingMatches: MatchedPerson[];         // people who liked you, not yet liked/passed
+  // New Matches tab
+  pendingMatches: MatchedPerson[];         // mutual matches without a started chat
   onSelectMatch: (id: number) => void;
   selectedMatchId: number | null;
   // Chats tab
@@ -43,7 +43,7 @@ export default function LeftPanel({
           style={{ ...s.tab, ...(activeTab === "matches" ? s.tabActive : {}) }}
           onClick={() => onTabChange("matches")}
         >
-          Matches
+          New Matches
         </button>
       </div>
 
@@ -51,7 +51,7 @@ export default function LeftPanel({
       <div style={s.list}>
         {activeTab === "matches" ? (
           pendingMatches.length === 0 ? (
-            <p style={s.emptyNote}>No pending matches.</p>
+            <p style={s.emptyNote}>No new matches.</p>
           ) : (
             pendingMatches.map((person) => (
               <PersonRow
@@ -66,7 +66,7 @@ export default function LeftPanel({
           )
         ) : (
           chatPeople.length === 0 ? (
-            <p style={s.emptyNote}>No chats yet. Like someone back in Matches!</p>
+            <p style={s.emptyNote}>No chats yet. Start a chat from New Matches.</p>
           ) : (
             chatPeople.map((person) => {
               const thread = chatThreads.get(person.id);

@@ -25,36 +25,19 @@ async function handleResponse<T>(res: Response): Promise<T> {
 }
 
 export async function fetchNextBrowseProfile(_excludeIds: number[]): Promise<Profile | null> {
-  const res = await fetch(`${API_BASE_URL}/browse/next`, {
+  const res = await fetch(`${API_BASE_URL}/discovery?limit=20`, {
     credentials: "include",
     headers: authHeaders(),
   });
 
-  if (res.status === 200) {
-    const json = await res.json();
-    if (!json.data.hasProfile) return null;
-    const p = json.data.profile;
+  const json = await handleResponse<{ data: any[] }>(res);
+  const profiles = json.data.map(normalizeProfile);
 
-    return {
-      id: p.userId,
-      name: p.fullName,
-      year: p.yearOfStudy,
-      major: p.major,
-      skills: p.skills,
-      interests: p.interests,
-      bio: p.bio,
-      projects: p.projects,
-      links: p.links,
-      fypIdea: p.fypIdea,
-      profilePicture: p.profilePicture,
-    } as Profile;
-  }
-
-  throw { code: res.status, message: "Failed to load profile." };
+  return profiles.find((profile) => !_excludeIds.includes(profile.id)) ?? null;
 }
 
 export async function fetchMatches(): Promise<MatchedPerson[]> {
-  const res = await fetch(`${API_BASE_URL}/matches`, {
+  const res = await fetch(`${API_BASE_URL}/matches/matches`, {
     credentials: "include",
     headers: authHeaders(),
   });
@@ -64,9 +47,9 @@ export async function fetchMatches(): Promise<MatchedPerson[]> {
   return json.data.map((m) => ({
     id: m.matchedUser.userId,
     matchId: m.matchId,
-    name: m.matchedUser.fullName,
-    major: m.matchedUser.major,
-    year: m.matchedUser.yearOfStudy,
+    name: m.matchedUser.fullName ?? "Unnamed Student",
+    major: m.matchedUser.major ?? "Undeclared",
+    year: formatYear(m.matchedUser.yearOfStudy),
     skills: m.matchedUser.skills ?? [],
     interests: m.matchedUser.interests ?? [],
     bio: m.matchedUser.bio,
@@ -76,8 +59,8 @@ export async function fetchMatches(): Promise<MatchedPerson[]> {
     hasUnreadMessages: m.hasUnreadMessages,
     isNewMatch: m.isNewMatch,
     hasProfileUpdated: m.hasProfileUpdated,
-    matchStatus: m.isMutual ? "MUTUAL LIKE!" : "LIKED YOUR PROFILE!",
-    hasExistingChat: Boolean(m.hasExistingChat),
+    matchStatus: "MUTUAL LIKE!",
+    hasExistingChat: true,
   }));
 }
 
@@ -137,6 +120,7 @@ export async function fetchChatHistory(matchId: number): Promise<ChatThread | nu
       from: m.senderId === d.matchedUser.userId ? "them" : "me",
       text: m.content,
     })),
+    chatStatus: "SEEN",
   } as ChatThread;
 }
 
@@ -153,23 +137,13 @@ export async function sendChatMessage(matchId: number, content: string): Promise
 }
 
 export async function unmatchUser(matchId: number): Promise<void> {
-  const res = await fetch(`${API_BASE_URL}/matches/${matchId}/unmatch`, {
-    method: "POST",
-    credentials: "include",
-    headers: authHeaders(),
-  });
-
-  await handleResponse(res);
+  void matchId;
+  throw { code: 501, message: "Unmatch is not available in the backend yet." };
 }
 
 export async function blockUser(matchId: number): Promise<void> {
-  const res = await fetch(`${API_BASE_URL}/matches/${matchId}/block`, {
-    method: "POST",
-    credentials: "include",
-    headers: authHeaders(),
-  });
-
-  await handleResponse(res);
+  void matchId;
+  throw { code: 501, message: "Block is not available in the backend yet." };
 }
 
 export async function logoutUser(): Promise<void> {
@@ -178,4 +152,26 @@ export async function logoutUser(): Promise<void> {
     credentials: "include",
     headers: authHeaders(),
   });
+}
+
+function normalizeProfile(p: any): Profile {
+  return {
+    id: p.userId,
+    name: p.fullName ?? "Unnamed Student",
+    year: formatYear(p.yearOfStudy),
+    major: p.major ?? "Undeclared",
+    skills: p.skills ?? [],
+    interests: p.interests ?? [],
+    bio: p.bio ?? undefined,
+    projects: p.projects ?? [],
+    links: p.links ?? {},
+    fypIdea: p.fypIdea ?? undefined,
+    profilePicture: p.profilePicture ?? null,
+  };
+}
+
+function formatYear(value: unknown): string {
+  if (value === null || value === undefined || value === "") return "Year N/A";
+  const text = String(value);
+  return text.toLowerCase().startsWith("year") ? text : `Year ${text}`;
 }

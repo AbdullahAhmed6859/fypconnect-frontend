@@ -1,20 +1,19 @@
 import React, { useEffect, useRef, useState } from "react";
 import type { MatchedPerson, ChatMessage } from "../../types/dashboard";
-import { AUTO_REPLIES } from "../../data/dashboardData";
 import { sendChatMessage } from "../../api/dashboard";
 
 interface ChatPanelProps {
   person: MatchedPerson;
+  matchId: number;
   messages: ChatMessage[];
   onMessagesUpdate: (updated: ChatMessage[]) => void;
   onUnmatch: () => void;
   onBlock: () => void;
 }
 
-let replyIndex = 0;
-
 export default function ChatPanel({
   person,
+  matchId,
   messages,
   onMessagesUpdate,
   onUnmatch,
@@ -48,19 +47,13 @@ export default function ChatPanel({
     const withSent = [...messages, sent];
     onMessagesUpdate(withSent);
 
-    // POST /chat/conversations/{matchId}/messages
-    await sendChatMessage(person.id, trimmed);
-    setSending(false);
-
-    // Simulated auto-reply
-    setTimeout(() => {
-      const reply: ChatMessage = {
-        from: "them",
-        text: AUTO_REPLIES[replyIndex % AUTO_REPLIES.length],
-      };
-      replyIndex++;
-      onMessagesUpdate([...withSent, reply]);
-    }, 900 + Math.random() * 600);
+    try {
+      await sendChatMessage(matchId, trimmed);
+    } catch {
+      onMessagesUpdate(messages);
+    } finally {
+      setSending(false);
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {

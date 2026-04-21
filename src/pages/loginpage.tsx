@@ -80,6 +80,7 @@ export default function LoginPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
+            style={{ paddingRight: "48px" }}
           />
           <button
             type="button"
@@ -136,7 +137,9 @@ const styles: Record<string, React.CSSProperties> = {
   eyeBtn: {
     position: "absolute",
     right: "12px",
-    bottom: "26px",
+    top: "31px",
+    width: "34px",
+    height: "34px",
     background: "none",
     border: "none",
     cursor: "pointer",
@@ -144,6 +147,7 @@ const styles: Record<string, React.CSSProperties> = {
     padding: "0",
     display: "flex",
     alignItems: "center",
+    justifyContent: "center",
   },
   submitBtn: {
     width: "100%",

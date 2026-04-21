@@ -10,10 +10,10 @@ export const authRoutes = {
 };
 
 export const dashboardRoutes = {
-  nextBrowseProfile: `${API_BASE_URL}/browse/next`,
+  discoveryProfiles: `${API_BASE_URL}/discovery`,
   likeProfile: `${API_BASE_URL}/browse/like`,
   passProfile: `${API_BASE_URL}/browse/pass`,
-  matches: `${API_BASE_URL}/matches`,
+  matches: `${API_BASE_URL}/matches/matches`,
   logout: `${API_BASE_URL}/auth/logout`,
 };
 

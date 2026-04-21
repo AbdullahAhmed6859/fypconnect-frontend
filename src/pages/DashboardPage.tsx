@@ -1,29 +1,27 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import LeftPanel from "../components/dashboard/LeftPanel";
 import ProfileCard from "../components/dashboard/ProfileCard";
 import ChatPanel from "../components/dashboard/ChatPanel";
 import ConfirmModal from "../components/dashboard/ConfirmModal";
 import { getProfileStatus } from "../api/auth";
-import type { MatchedPerson, Profile, ChatMessage, ChatThread } from "../types/dashboard";
-import { DUMMY_MATCHES, DUMMY_CHAT_THREADS, DUMMY_BROWSE_POOL } from "../data/dashboardData";
+import type { ChatMessage, ChatThread, MatchedPerson, Profile } from "../types/dashboard";
 import {
+  fetchChatHistory,
+  fetchMatches,
+  fetchNextBrowseProfile,
   likeProfile,
   passProfile,
-  likeBackMatch,
-  passMatch,
   unmatchUser,
   blockUser,
   logoutUser,
 } from "../api/dashboard";
 
-
 type ActiveTab = "chats" | "matches";
 
-// What's shown on the right panel
 type RightView =
-  | { type: "browse";  profile: Profile }
+  | { type: "browse"; profile: Profile }
   | { type: "matchProfile"; person: MatchedPerson }
-  | { type: "chat";    personId: number }
+  | { type: "chat"; personId: number }
   | { type: "noMore" }
   | { type: "empty" };
 
@@ -36,177 +34,193 @@ interface ModalState {
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("matches");
+  const [matches, setMatches] = useState<MatchedPerson[]>([]);
+  const [startedChatIds, setStartedChatIds] = useState<Set<number>>(new Set());
+  const [loadingDashboard, setLoadingDashboard] = useState(true);
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
+
+  const [browsedIds, setBrowsedIds] = useState<Set<number>>(new Set());
+  const [currentBrowseProfile, setCurrentBrowseProfile] = useState<Profile | null>(null);
+
+  const [chatThreads, setChatThreads] = useState<Map<number, ChatThread>>(new Map());
+  const [rightView, setRightView] = useState<RightView>({ type: "empty" });
+  const [selectedMatchId, setSelectedMatchId] = useState<number | null>(null);
+  const [selectedChatId, setSelectedChatId] = useState<number | null>(null);
+  const [modal, setModal] = useState<ModalState | null>(null);
+
   useEffect(() => {
     getProfileStatus()
       .then(({ profileCompleted }) => {
-        if (!profileCompleted) {
-          window.location.href = "/profile/setup/academic";
-        }
+        if (!profileCompleted) window.location.href = "/profile/setup/academic";
       })
       .catch(() => {
         window.location.href = "/login";
       });
   }, []);
 
-  // --- Matches state ---
-  // IDs passed or liked in the Matches tab
-  const [rejectedMatchIds, setRejectedMatchIds] = useState<Set<number>>(new Set());
-  const [acceptedMatchIds, setAcceptedMatchIds] = useState<Set<number>>(new Set());
-
-  // --- Browse state ---
-  // IDs already liked/passed in the browse feed
-  const [browsedIds, setBrowsedIds] = useState<Set<number>>(new Set());
-  // Which browse profile is currently shown (persists when user opens a match profile)
-  const [currentBrowseProfile, setCurrentBrowseProfile] = useState<Profile | null>(null);
-
-  // --- Chat state ---
-  // Map of personId → ChatThread (messages + status)
-  const [chatThreads, setChatThreads] = useState<Map<number, ChatThread>>(() => {
-    const map = new Map<number, ChatThread>();
-    DUMMY_CHAT_THREADS.forEach((t) => map.set(t.personId, t));
-    return map;
-  });
-
-  // --- Right panel ---
-  const [rightView, setRightView] = useState<RightView>({ type: "empty" });
-
-  // --- Selected IDs for left panel highlight ---
-  const [selectedMatchId, setSelectedMatchId] = useState<number | null>(null);
-  const [selectedChatId, setSelectedChatId] = useState<number | null>(null);
-
-  // --- Modal ---
-  const [modal, setModal] = useState<ModalState | null>(null);
-
-  // On mount: load the first browse profile so the right side isn't blank
   useEffect(() => {
-    const first = DUMMY_BROWSE_POOL.find((p) => !browsedIds.has(p.id));
-    if (first) {
-      setCurrentBrowseProfile(first);
-      setRightView({ type: "browse", profile: first });
+    let active = true;
+
+    async function loadDashboard() {
+      setLoadingDashboard(true);
+      setDashboardError(null);
+
+      try {
+        const [loadedMatches, firstProfile] = await Promise.all([
+          fetchMatches(),
+          fetchNextBrowseProfile([]),
+        ]);
+
+        if (!active) return;
+        setMatches(loadedMatches);
+
+        if (firstProfile) {
+          setCurrentBrowseProfile(firstProfile);
+          setRightView({ type: "browse", profile: firstProfile });
+        } else {
+          setRightView({ type: "noMore" });
+        }
+      } catch (err: unknown) {
+        if (!active) return;
+        showActionError(err, "Could not load dashboard data.");
+        setRightView({ type: "empty" });
+      } finally {
+        if (active) setLoadingDashboard(false);
+      }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    void loadDashboard();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
-  // Derived lists
-  const pendingMatches = DUMMY_MATCHES.filter(
-    (p) => !rejectedMatchIds.has(p.id) && !acceptedMatchIds.has(p.id)
-  );
+  const newMatches = matches.filter((person) => !hasStartedChat(person));
+  const chatPeople = matches.filter((person) => hasStartedChat(person));
 
-  // People with active chats: those with existing chats + those just accepted
-  const chatPeople = DUMMY_MATCHES.filter(
-    (p) =>
-      (p.hasExistingChat || acceptedMatchIds.has(p.id)) &&
-      !rejectedMatchIds.has(p.id)
-  );
+  function hasStartedChat(person: MatchedPerson) {
+    const thread = chatThreads.get(person.id);
+    return (
+      startedChatIds.has(person.id) ||
+      Boolean(person.lastMessagePreview) ||
+      Boolean(thread && thread.messages.length > 0)
+    );
+  }
 
-  // ── Tab switching ──
   function handleTabChange(tab: ActiveTab) {
     setActiveTab(tab);
     setSelectedMatchId(null);
     setSelectedChatId(null);
-    // When switching back to matches, restore the browse profile on the right
+
     if (tab === "matches") {
-      if (currentBrowseProfile && !browsedIds.has(currentBrowseProfile.id)) {
-        setRightView({ type: "browse", profile: currentBrowseProfile });
-      } else {
-        const next = DUMMY_BROWSE_POOL.find((p) => !browsedIds.has(p.id));
-        if (next) {
-          setCurrentBrowseProfile(next);
-          setRightView({ type: "browse", profile: next });
-        } else {
-          setRightView({ type: "noMore" });
-        }
-      }
+      restoreBrowseView();
     } else {
       setRightView({ type: "empty" });
     }
   }
 
-  // ── Browse feed: like ──
-  async function handleBrowseLike(profileId: number) {
-    await likeProfile(profileId);
-    const updated = new Set(browsedIds).add(profileId);
-    setBrowsedIds(updated);
-    advanceBrowseFeed(updated);
-  }
-
-  // ── Browse feed: pass ──
-  async function handleBrowsePass(profileId: number) {
-    await passProfile(profileId);
-    const updated = new Set(browsedIds).add(profileId);
-    setBrowsedIds(updated);
-    advanceBrowseFeed(updated);
-  }
-
-  function advanceBrowseFeed(excluded: Set<number>) {
-    const next = DUMMY_BROWSE_POOL.find((p) => !excluded.has(p.id));
-    if (next) {
-      setCurrentBrowseProfile(next);
-      setRightView({ type: "browse", profile: next });
+  function restoreBrowseView() {
+    if (currentBrowseProfile && !browsedIds.has(currentBrowseProfile.id)) {
+      setRightView({ type: "browse", profile: currentBrowseProfile });
     } else {
-      setCurrentBrowseProfile(null);
       setRightView({ type: "noMore" });
     }
-    setSelectedMatchId(null);
   }
 
-  // ── Matches tab: open a profile ──
+  async function handleBrowseLike(profileId: number) {
+    try {
+      const result = await likeProfile(profileId);
+      const updated = new Set(browsedIds).add(profileId);
+      setBrowsedIds(updated);
+
+      if (result.isMutualMatch) {
+        setMatches(await fetchMatches());
+      }
+
+      await advanceBrowseFeed(updated);
+    } catch (err: unknown) {
+      showActionError(err, "Could not like this profile.");
+    }
+  }
+
+  async function handleBrowsePass(profileId: number) {
+    try {
+      await passProfile(profileId);
+      const updated = new Set(browsedIds).add(profileId);
+      setBrowsedIds(updated);
+      await advanceBrowseFeed(updated);
+    } catch (err: unknown) {
+      showActionError(err, "Could not pass this profile.");
+    }
+  }
+
+  async function advanceBrowseFeed(excluded: Set<number>) {
+    try {
+      const next = await fetchNextBrowseProfile([...excluded]);
+      if (next) {
+        setCurrentBrowseProfile(next);
+        setRightView({ type: "browse", profile: next });
+      } else {
+        setCurrentBrowseProfile(null);
+        setRightView({ type: "noMore" });
+      }
+      setSelectedMatchId(null);
+    } catch (err: unknown) {
+      showActionError(err, "Could not load the next profile.");
+    }
+  }
+
   function handleSelectMatch(personId: number) {
-    const person = DUMMY_MATCHES.find((p) => p.id === personId)!;
+    const person = matches.find((p) => p.id === personId);
+    if (!person) return;
+
     setSelectedMatchId(personId);
     setSelectedChatId(null);
     setRightView({ type: "matchProfile", person });
   }
 
-  // ── Matches tab: like back → open chat ──
-  async function handleLikeBackMatch(personId: number) {
-    await likeBackMatch(personId);
-    const updated = new Set(acceptedMatchIds).add(personId);
-    setAcceptedMatchIds(updated);
+  async function handleStartChat(personId: number) {
+    await openChat(personId);
+  }
 
-    // Ensure a chat thread exists
-    if (!chatThreads.has(personId)) {
-      const newThread: ChatThread = { personId, messages: [], chatStatus: "NEW MATCH!" };
-      setChatThreads((prev) => new Map(prev).set(personId, newThread));
-    }
+  function handleDismissNewMatch() {
+    setModal({
+      title: "Action not available yet",
+      body: "The backend does not expose unmatch or dismiss for mutual matches yet.",
+      confirmLabel: "OK",
+      onConfirm: () => setModal(null),
+    });
+  }
 
-    // Switch to chats tab and open the chat
+  function handleSelectChat(personId: number) {
+    void openChat(personId);
+  }
+
+  async function openChat(personId: number) {
+    const person = matches.find((p) => p.id === personId);
+    if (!person) return;
+
+    setStartedChatIds((prev) => new Set(prev).add(personId));
     setActiveTab("chats");
     setSelectedChatId(personId);
     setSelectedMatchId(null);
     setRightView({ type: "chat", personId });
-  }
 
-  // ── Matches tab: pass ──
-  async function handlePassMatch(personId: number) {
-    await passMatch(personId);
-    const updated = new Set(rejectedMatchIds).add(personId);
-    setRejectedMatchIds(updated);
-    setSelectedMatchId(null);
+    if (!person.matchId || chatThreads.has(personId)) return;
 
-    // Go back to whichever browse profile was showing before
-    if (currentBrowseProfile && !browsedIds.has(currentBrowseProfile.id)) {
-      setRightView({ type: "browse", profile: currentBrowseProfile });
-    } else {
-      const next = DUMMY_BROWSE_POOL.find((p) => !browsedIds.has(p.id));
-      if (next) {
-        setCurrentBrowseProfile(next);
-        setRightView({ type: "browse", profile: next });
-      } else {
-        setRightView({ type: "noMore" });
+    try {
+      const thread = await fetchChatHistory(person.matchId);
+      if (thread) {
+        setChatThreads((prev) => new Map(prev).set(personId, thread));
       }
+    } catch (err: unknown) {
+      showActionError(err, "Could not load this conversation.");
     }
   }
 
-  // ── Chats tab: open a chat ──
-  function handleSelectChat(personId: number) {
-    setSelectedChatId(personId);
-    setSelectedMatchId(null);
-    setRightView({ type: "chat", personId });
-  }
-
-  // ── Chat: messages update ──
   function handleMessagesUpdate(personId: number, updated: ChatMessage[]) {
+    setStartedChatIds((prev) => new Set(prev).add(personId));
     setChatThreads((prev) => {
       const existing = prev.get(personId);
       const next = new Map(prev);
@@ -219,84 +233,103 @@ export default function DashboardPage() {
     });
   }
 
-  // ── Unmatch ──
   function handleUnmatch(personId: number) {
-    const person = DUMMY_MATCHES.find((p) => p.id === personId)!;
+    const person = matches.find((p) => p.id === personId);
+    if (!person) return;
+
     setModal({
       title: `Unmatch ${person.name}?`,
-      body: "This will remove the match from both chat lists. You can match again in the future, but previous messages won't be restored.",
+      body: "This will remove the match from both chat lists. This backend action is not available yet.",
       confirmLabel: "Unmatch",
       onConfirm: async () => {
-        await unmatchUser(person.matchId ?? person.id);
-        executeRemove(personId);
+        try {
+          await unmatchUser(person.matchId ?? person.id);
+          executeRemove(personId);
+        } catch (err: unknown) {
+          showActionError(err, "Unmatch is not available yet.");
+          setModal(null);
+        }
       },
     });
   }
 
-  // ── Block ──
   function handleBlock(personId: number) {
-    const person = DUMMY_MATCHES.find((p) => p.id === personId)!;
+    const person = matches.find((p) => p.id === personId);
+    if (!person) return;
+
     setModal({
       title: `Block ${person.name}?`,
-      body: "Blocking will unmatch you immediately and prevent any future matching. You can unblock them later in Match Settings.",
+      body: "Blocking is not available in the backend yet.",
       confirmLabel: "Block",
       onConfirm: async () => {
-        await blockUser(person.matchId ?? person.id);
-        executeRemove(personId);
+        try {
+          await blockUser(person.matchId ?? person.id);
+          executeRemove(personId);
+        } catch (err: unknown) {
+          showActionError(err, "Block is not available yet.");
+          setModal(null);
+        }
       },
     });
   }
 
   function executeRemove(personId: number) {
     setModal(null);
-    setRejectedMatchIds((prev) => new Set(prev).add(personId));
-    setAcceptedMatchIds((prev) => { const s = new Set(prev); s.delete(personId); return s; });
+    setMatches((prev) => prev.filter((person) => person.id !== personId));
+    setStartedChatIds((prev) => {
+      const next = new Set(prev);
+      next.delete(personId);
+      return next;
+    });
     setSelectedChatId(null);
     setSelectedMatchId(null);
     setRightView({ type: "empty" });
   }
 
-  // ── Logout ──
   async function handleLogout() {
-  try {
-    await logoutUser();
-  } finally {
-    window.location.href = "/login";
+    try {
+      await logoutUser();
+    } finally {
+      window.location.href = "/login";
+    }
   }
-}
 
-  // ── Right panel renderer ──
+  function showActionError(err: unknown, fallback: string) {
+    const apiError = err as { message?: string };
+    setDashboardError(apiError.message ?? fallback);
+  }
+
   function renderRight() {
     switch (rightView.type) {
-
       case "browse":
         return (
           <ProfileCard
             profile={rightView.profile}
             onLike={() => handleBrowseLike(rightView.profile.id)}
             onPass={() => handleBrowsePass(rightView.profile.id)}
-            contextLabel="Browse — like to express interest, pass to skip permanently."
+            contextLabel="Browse - like to express interest, pass to skip permanently."
           />
         );
 
-      case "matchProfile": {
-        const person = rightView.person;
+      case "matchProfile":
         return (
           <ProfileCard
-            profile={person}
-            onLike={() => handleLikeBackMatch(person.id)}
-            onPass={() => handlePassMatch(person.id)}
-            contextLabel={`${person.matchStatus} Like back to start a chat.`}
+            profile={rightView.person}
+            onLike={() => handleStartChat(rightView.person.id)}
+            onPass={handleDismissNewMatch}
+            contextLabel={`${rightView.person.matchStatus} Start a chat to move this match into Chats.`}
           />
         );
-      }
 
       case "chat": {
-        const person = DUMMY_MATCHES.find((p) => p.id === rightView.personId)!;
+        const person = matches.find((p) => p.id === rightView.personId);
         const thread = chatThreads.get(rightView.personId);
+        if (!person) return null;
+
         return (
           <ChatPanel
             person={person}
+            matchId={person.matchId ?? person.id}
             messages={thread?.messages ?? []}
             onMessagesUpdate={(msgs) => handleMessagesUpdate(rightView.personId, msgs)}
             onUnmatch={() => handleUnmatch(rightView.personId)}
@@ -307,18 +340,22 @@ export default function DashboardPage() {
 
       case "noMore":
         return (
-          <div style={s.emptyState}>
-            <div style={s.emptyIcon}>🔍</div>
-            <div style={s.emptyTitle}>No More Profiles To Show.</div>
-            <p style={s.emptyBody}>
-              You have seen all available profiles matching your current preferences
-              and interaction history.<br /><br />
-              Consider updating your profile and preferences or unblocking users to
-              continue browsing.
-            </p>
+          <div style={s.noMoreState}>
+            <div style={s.noMoreBox}>
+              <div style={s.noMoreTitle}>No More Profiles To Show.</div>
+              <p style={s.noMoreBody}>
+                You have seen all available profiles matching your current preferences
+                and interaction history.
+              </p>
+              <p style={s.noMoreBody}>
+                Consider updating your profile and preferences or unblocking users to
+                continue browsing.
+              </p>
+            </div>
             <button
+              type="button"
               style={s.btnUpdateProfile}
-              onClick={() => alert("Navigate to profile editor (not built yet)")}
+              onClick={() => alert("Edit Profile screen coming soon.")}
             >
               Update My Profile
             </button>
@@ -328,10 +365,13 @@ export default function DashboardPage() {
       case "empty":
       default:
         return (
-          <div style={s.emptyState}>
-            <div style={s.emptyIcon}>💬</div>
-            <div style={s.emptyTitle}>Select a chat</div>
-            <p style={s.emptyBody}>Choose a conversation from the left to start messaging.</p>
+          <div style={s.noMoreState}>
+            <div style={s.noMoreBox}>
+              <div style={s.noMoreTitle}>Select a chat</div>
+              <p style={s.noMoreBody}>
+                Choose a conversation from the left to start messaging.
+              </p>
+            </div>
           </div>
         );
     }
@@ -339,7 +379,6 @@ export default function DashboardPage() {
 
   return (
     <>
-      {/* Keyframe injections */}
       <style>{`
         @keyframes fadeSlideUp {
           from { opacity: 0; transform: translateY(14px); }
@@ -359,20 +398,25 @@ export default function DashboardPage() {
       `}</style>
 
       <div style={s.page}>
+        {dashboardError && (
+          <div style={s.errorToast} role="alert">
+            <span>{dashboardError}</span>
+            <button style={s.errorClose} onClick={() => setDashboardError(null)}>
+              x
+            </button>
+          </div>
+        )}
 
-        {/* ── Top Nav ── */}
         <nav style={s.topnav}>
-          {/* "Me" — placeholder for profile edit */}
           <button
             style={s.navMe}
             onClick={() => alert("Edit Profile screen coming soon.")}
             title="View / edit your profile"
           >
-            <div style={s.navAvatar}>👤</div>
+            <div style={s.navAvatar}>Me</div>
             <span>Me</span>
           </button>
 
-          {/* Brand — reloads dashboard (current page) */}
           <div
             style={s.navBrand}
             onClick={() => window.location.reload()}
@@ -386,12 +430,11 @@ export default function DashboardPage() {
           </button>
         </nav>
 
-        {/* ── Main layout ── */}
         <div style={s.main}>
           <LeftPanel
             activeTab={activeTab}
             onTabChange={handleTabChange}
-            pendingMatches={pendingMatches}
+            pendingMatches={newMatches}
             onSelectMatch={handleSelectMatch}
             selectedMatchId={selectedMatchId}
             chatPeople={chatPeople}
@@ -401,13 +444,17 @@ export default function DashboardPage() {
           />
 
           <div style={s.rightPanel}>
-            {renderRight()}
+            {loadingDashboard ? (
+              <div style={s.emptyState}>
+                <div style={s.emptyTitle}>Loading dashboard...</div>
+              </div>
+            ) : (
+              renderRight()
+            )}
           </div>
         </div>
-
       </div>
 
-      {/* Confirmation modal */}
       {modal && (
         <ConfirmModal
           title={modal.title}
@@ -425,7 +472,19 @@ const s: Record<string, React.CSSProperties> = {
   page: {
     height: "100vh", display: "flex", flexDirection: "column",
     fontFamily: "'DM Sans', sans-serif",
-    background: "#F5F5F5", overflow: "hidden",
+    background: "#F5F5F5", overflow: "hidden", position: "relative",
+  },
+  errorToast: {
+    position: "absolute", top: "70px", right: "20px", zIndex: 120,
+    maxWidth: "360px", background: "#ffffff", color: "#1a1a2e",
+    border: "1px solid #F99417", borderLeft: "5px solid #F99417",
+    borderRadius: "8px", padding: "12px 14px", display: "flex",
+    alignItems: "center", gap: "12px", boxShadow: "0 8px 30px rgba(0,0,0,0.12)",
+    fontSize: "13px", lineHeight: 1.4,
+  },
+  errorClose: {
+    border: "none", background: "none", color: "#6b6b7b",
+    cursor: "pointer", fontSize: "14px", fontWeight: 700,
   },
   topnav: {
     height: "58px", flexShrink: 0,
@@ -446,7 +505,7 @@ const s: Record<string, React.CSSProperties> = {
     width: "34px", height: "34px", borderRadius: "50%",
     background: "#f0eaf8", border: "2px solid #5D3891",
     display: "flex", alignItems: "center", justifyContent: "center",
-    fontSize: "16px", color: "#5D3891", flexShrink: 0,
+    fontSize: "11px", color: "#5D3891", flexShrink: 0, fontWeight: 700,
   },
   navBrand: {
     flex: 1, textAlign: "center",
@@ -475,7 +534,7 @@ const s: Record<string, React.CSSProperties> = {
     alignItems: "center", justifyContent: "center",
     textAlign: "center", padding: "40px", gap: "12px",
   },
-  emptyIcon: { fontSize: "48px", opacity: 0.3, marginBottom: "4px" },
+  emptyIcon: { fontSize: "22px", opacity: 0.45, marginBottom: "4px", fontWeight: 700 },
   emptyTitle: {
     fontFamily: "'Fraunces', serif",
     fontSize: "20px", fontWeight: 700, color: "#1a1a2e",
@@ -484,12 +543,59 @@ const s: Record<string, React.CSSProperties> = {
     fontSize: "14px", color: "#6b6b7b",
     lineHeight: 1.6, maxWidth: "320px",
   },
+  noMoreState: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "24px",
+    textAlign: "center",
+    overflow: "hidden",
+  },
+  noMoreBox: {
+    width: "100%",
+    maxWidth: "760px",
+    flex: 1,
+    minHeight: 0,
+    border: "1px solid #E8E2E2",
+    borderRadius: "14px",
+    background: "#ffffff",
+    boxShadow: "0 4px 24px rgba(93,56,145,0.07)",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "18px",
+    padding: "32px 44px",
+    animation: "fadeSlideUp 0.25s ease both",
+  },
+  noMoreTitle: {
+    fontFamily: "'Fraunces', serif",
+    fontSize: "20px",
+    fontWeight: 700,
+    color: "#1a1a2e",
+  },
+  noMoreBody: {
+    maxWidth: "430px",
+    fontSize: "14px",
+    lineHeight: 1.6,
+    color: "#6b6b7b",
+    fontWeight: 400,
+  },
   btnUpdateProfile: {
-    marginTop: "8px", padding: "10px 24px",
-    border: "1.5px solid #5D3891", borderRadius: "20px",
-    background: "#ffffff", color: "#5D3891",
+    marginTop: "18px",
+    padding: "10px 24px",
+    border: "1.5px solid #5D3891",
+    borderRadius: "20px",
+    background: "#ffffff",
+    color: "#5D3891",
     fontFamily: "'DM Sans', sans-serif",
-    fontSize: "14px", fontWeight: 600, cursor: "pointer",
+    fontSize: "14px",
+    fontWeight: 600,
+    lineHeight: 1.2,
+    cursor: "pointer",
+    flexShrink: 0,
     transition: "all 0.15s ease",
   },
 };

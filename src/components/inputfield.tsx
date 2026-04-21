@@ -6,11 +6,11 @@ interface InputFieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
 
 // Simple labelled input — forwards ref so parent can autofocus
 const InputField = forwardRef<HTMLInputElement, InputFieldProps>(
-  ({ label, ...props }, ref) => {
+  ({ label, style, ...props }, ref) => {
     return (
       <div style={styles.wrapper}>
         <label style={styles.label}>{label}</label>
-        <input ref={ref} style={styles.input} {...props} />
+        <input ref={ref} style={{ ...styles.input, ...style }} {...props} />
       </div>
     );
   }
@@ -33,6 +33,7 @@ const styles: Record<string, React.CSSProperties> = {
     letterSpacing: "0.1px",
   },
   input: {
+    width: "100%",
     padding: "11px 14px",
     border: "1.5px solid #E8E2E2",
     borderRadius: "8px",
