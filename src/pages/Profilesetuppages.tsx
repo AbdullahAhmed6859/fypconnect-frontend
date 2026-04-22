@@ -44,6 +44,12 @@ type PersonalData = {
   projects: { project_name: string; project_link: string }[];
 };
 
+type FieldErrors = Record<string, string>;
+
+const MAX_PROFILE_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_BIO_WORDS = 100;
+const MAX_FYP_IDEA_WORDS = 120;
+
 // ─────────────────────────────────────────────────────────────────────────────
 //  sessionStorage helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -322,14 +328,16 @@ function LabeledTextarea({
   onChange,
   maxWords,
   placeholder,
+  error,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   maxWords: number;
   placeholder?: string;
+  error?: string;
 }) {
-  const wordCount = value.trim() ? value.trim().split(/\s+/).length : 0;
+  const wordCount = countWords(value);
   const over = wordCount > maxWords;
 
   return (
@@ -348,6 +356,16 @@ function LabeledTextarea({
       <div style={{ ...f.wordCount, color: over ? "#e74c3c" : "#9999aa" }}>
         {wordCount}/{maxWords} words used
       </div>
+      <FieldError message={error} />
+    </div>
+  );
+}
+
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null;
+  return (
+    <div style={f.fieldError} role="alert">
+      {message}
     </div>
   );
 }
@@ -389,18 +407,96 @@ function AvatarPlaceholder() {
 
 function buildLinksPayload(links: string[]) {
   const result: { github?: string; linkedin?: string; portfolio?: string } = {};
-  for (const url of links) {
-    const u = url.trim().toLowerCase();
-    if (!u) continue;
-    if (u.includes("github") && !result.github) {
-      result.github = url.trim();
-    } else if (u.includes("linkedin") && !result.linkedin) {
-      result.linkedin = url.trim();
-    } else if (!result.portfolio) {
-      result.portfolio = url.trim();
+  const seenUrls = new Set<string>();
+  const seenKinds = new Set<string>();
+
+  for (const [index, rawUrl] of links.entries()) {
+    if (!rawUrl.trim()) continue;
+
+    const url = normalizeUrl(rawUrl, `Link ${index + 1}`);
+    const kind = classifyLink(url);
+
+    if (seenUrls.has(url.toLowerCase())) {
+      throw new Error("Please remove duplicate profile links.");
     }
+    if (seenKinds.has(kind)) {
+      throw new Error(`Please add only one ${kind} link.`);
+    }
+
+    seenUrls.add(url.toLowerCase());
+    seenKinds.add(kind);
+    result[kind] = url;
   }
+
   return result;
+}
+
+function validateAndBuildProjects(projects: PersonalData["projects"]) {
+  const seenNames = new Set<string>();
+  const seenLinks = new Set<string>();
+
+  return projects.reduce<{ project_name: string; project_link?: string | null }[]>(
+    (cleanProjects, project, index) => {
+      const name = project.project_name.trim();
+      const rawLink = project.project_link.trim();
+
+      if (!name && !rawLink) return cleanProjects;
+      if (!name) throw new Error(`Project ${index + 1} needs a project name.`);
+
+      const normalizedName = name.toLowerCase();
+      if (seenNames.has(normalizedName)) {
+        throw new Error("Please remove duplicate project names.");
+      }
+      seenNames.add(normalizedName);
+
+      let projectLink: string | null = null;
+      if (rawLink) {
+        projectLink = normalizeUrl(rawLink, `Project ${index + 1} link`);
+        if (seenLinks.has(projectLink.toLowerCase())) {
+          throw new Error("Please remove duplicate project links.");
+        }
+        seenLinks.add(projectLink.toLowerCase());
+      }
+
+      cleanProjects.push({ project_name: name, project_link: projectLink });
+      return cleanProjects;
+    },
+    []
+  );
+}
+
+function normalizeUrl(value: string, field: string): string {
+  try {
+    const parsed = new URL(value.trim());
+    if (!["http:", "https:"].includes(parsed.protocol)) {
+      throw new Error();
+    }
+
+    parsed.hash = "";
+    return parsed.toString().replace(/\/$/, "");
+  } catch {
+    throw new Error(`${field} must be a valid http or https URL.`);
+  }
+}
+
+function classifyLink(url: string): "github" | "linkedin" | "portfolio" {
+  const host = new URL(url).hostname.replace(/^www\./, "").toLowerCase();
+  if (host === "github.com") return "github";
+  if (host === "linkedin.com") return "linkedin";
+  return "portfolio";
+}
+
+function countWords(value: string) {
+  return value.trim() ? value.trim().split(/\s+/).length : 0;
+}
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Could not read that image file."));
+    reader.readAsDataURL(file);
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -440,7 +536,7 @@ export function ProfileSetupAcademicPage() {
   if (loading || optionsError) {
     return (
       <SetupDataState
-        sectionLabel="Section A: Academic Identity"
+        sectionLabel="Step 1: Your Basic Info"
         loading={loading}
         error={optionsError}
       />
@@ -448,7 +544,7 @@ export function ProfileSetupAcademicPage() {
   }
 
   return (
-    <SetupShell sectionLabel="Section A: Academic Identity">
+    <SetupShell sectionLabel="Step 1: Your Basic Info">
       <div style={f.form}>
         <div style={f.fieldBlock}>
           <label style={f.label}>Full Name</label>
@@ -497,11 +593,6 @@ export function ProfileSetupAcademicPage() {
           </select>
         </div>
 
-        <p style={f.infoText}>
-          Browsing and matching are available to Juniors and Seniors only.
-          You can still set up your profile for later use.
-        </p>
-
         {isRestricted && (
           <div style={f.restrictionNote}>
             You can complete setup now, but browsing will stay locked until
@@ -519,7 +610,7 @@ export function ProfileSetupAcademicPage() {
           style={f.btnOutline}
           onClick={handleNext}
         >
-          Setup My Matching Basis
+          Add My Skills and Interests
         </button>
       </div>
     </SetupShell>
@@ -553,7 +644,7 @@ export function ProfileSetupMatchingPage() {
   if (loading || optionsError) {
     return (
       <SetupDataState
-        sectionLabel="Section B: Matching Basis"
+        sectionLabel="Step 2: Your Skills and Interests"
         loading={loading}
         error={optionsError}
       />
@@ -561,7 +652,7 @@ export function ProfileSetupMatchingPage() {
   }
 
   return (
-    <SetupShell sectionLabel="Section B: Matching Basis">
+    <SetupShell sectionLabel="Step 2: Your Skills and Interests">
       <div style={f.form}>
         <SearchableMultiSelect
           label="My Skills (Select All That Apply)"
@@ -602,7 +693,7 @@ export function ProfileSetupMatchingPage() {
           }}
           onClick={handleNext}
         >
-          Setup My Team Preferences
+          Choose Teammate Preferences
         </button>
       </div>
     </SetupShell>
@@ -632,7 +723,7 @@ export function ProfileSetupPreferencesPage() {
   if (loading || optionsError) {
     return (
       <SetupDataState
-        sectionLabel="Section C: Discovery Preferences (Optional)"
+        sectionLabel="Step 3: Teammate Preferences (Optional)"
         loading={loading}
         error={optionsError}
       />
@@ -640,7 +731,7 @@ export function ProfileSetupPreferencesPage() {
   }
 
   return (
-    <SetupShell sectionLabel="Section C: Discovery Preferences (Optional)">
+    <SetupShell sectionLabel="Step 3: Teammate Preferences (Optional)">
       <div style={f.form}>
         <SearchableMultiSelect
           label="Preferred Majors (Select All That Apply) (Optional)"
@@ -682,7 +773,7 @@ export function ProfileSetupPreferencesPage() {
           style={f.btnOutline}
           onClick={handleNext}
         >
-          Add Additional Details About Me
+          Add Profile Details
         </button>
       </div>
     </SetupShell>
@@ -696,8 +787,10 @@ export function ProfileSetupPreferencesPage() {
 export function ProfileSetupPersonalPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [profilePictureData, setProfilePictureData] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
   const [form, setForm] = useState<PersonalData>({
     bio: "",
@@ -710,18 +803,60 @@ export function ProfileSetupPersonalPage() {
     ],
   });
 
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    setPreviewUrl(URL.createObjectURL(file));
+
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      delete next.image;
+      return next;
+    });
+
+    if (!file.type.startsWith("image/")) {
+      setPreviewUrl(null);
+      setProfilePictureData(null);
+      setFieldErrors((prev) => ({ ...prev, image: "Please upload a valid image file." }));
+      return;
+    }
+
+    if (file.size > MAX_PROFILE_IMAGE_BYTES) {
+      setPreviewUrl(null);
+      setProfilePictureData(null);
+      setFieldErrors((prev) => ({ ...prev, image: "Profile picture must be 5 MB or smaller." }));
+      return;
+    }
+
+    try {
+      setProfilePictureData(await readFileAsDataUrl(file));
+      setPreviewUrl(URL.createObjectURL(file));
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      setFieldErrors((prev) => ({
+        ...prev,
+        image: e.message ?? "Could not read that image file.",
+      }));
+    }
   }
 
   function updateLink(i: number, v: string) {
     setForm((p) => ({ ...p, links: p.links.map((l, idx) => (idx === i ? v : l)) }));
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      delete next[`link-${i}`];
+      return next;
+    });
   }
 
   function removeLink(i: number) {
     setForm((p) => ({ ...p, links: p.links.filter((_, idx) => idx !== i) }));
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      Object.keys(next).forEach((key) => {
+        if (key.startsWith("link-")) delete next[key];
+      });
+      return next;
+    });
   }
 
   function updateProject(i: number, field: "project_name" | "project_link", v: string) {
@@ -731,6 +866,72 @@ export function ProfileSetupPersonalPage() {
         idx === i ? { ...pr, [field]: v } : pr
       ),
     }));
+    setFieldErrors((prev) => {
+      const next = { ...prev };
+      delete next[`project-${i}-name`];
+      delete next[`project-${i}-link`];
+      return next;
+    });
+  }
+
+  function validatePersonalDetails() {
+    const errors: FieldErrors = {};
+
+    if (countWords(form.bio) > MAX_BIO_WORDS) {
+      errors.bio = `Bio must be ${MAX_BIO_WORDS} words or fewer.`;
+    }
+    if (countWords(form.fypIdea) > MAX_FYP_IDEA_WORDS) {
+      errors.fypIdea = `FYP/thesis idea must be ${MAX_FYP_IDEA_WORDS} words or fewer.`;
+    }
+
+    const seenLinks = new Set<string>();
+    const seenKinds = new Set<string>();
+    form.links.forEach((link, index) => {
+      if (!link.trim()) return;
+      try {
+        const normalized = normalizeUrl(link, `Link ${index + 1}`);
+        const kind = classifyLink(normalized);
+        if (seenLinks.has(normalized.toLowerCase())) {
+          errors[`link-${index}`] = "This link is already added.";
+        } else if (seenKinds.has(kind)) {
+          errors[`link-${index}`] = `Only one ${kind} link can be added.`;
+        }
+        seenLinks.add(normalized.toLowerCase());
+        seenKinds.add(kind);
+      } catch (err: unknown) {
+        errors[`link-${index}`] = (err as Error).message;
+      }
+    });
+
+    const seenProjectNames = new Set<string>();
+    const seenProjectLinks = new Set<string>();
+    form.projects.forEach((project, index) => {
+      const name = project.project_name.trim();
+      const link = project.project_link.trim();
+      if (!name && !link) return;
+
+      if (!name) {
+        errors[`project-${index}-name`] = "Add a project name or clear this row.";
+      } else if (seenProjectNames.has(name.toLowerCase())) {
+        errors[`project-${index}-name`] = "This project name is already added.";
+      }
+      if (name) seenProjectNames.add(name.toLowerCase());
+
+      if (link) {
+        try {
+          const normalized = normalizeUrl(link, `Project ${index + 1} link`);
+          if (seenProjectLinks.has(normalized.toLowerCase())) {
+            errors[`project-${index}-link`] = "This project link is already added.";
+          }
+          seenProjectLinks.add(normalized.toLowerCase());
+        } catch (err: unknown) {
+          errors[`project-${index}-link`] = (err as Error).message;
+        }
+      }
+    });
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
   }
 
   async function handleComplete() {
@@ -746,11 +947,16 @@ export function ProfileSetupPersonalPage() {
       academic.yearId === "" ||
       academic.majorId === ""
     ) {
-      setError("Missing academic info. Please go back to Section A.");
+      setError("Missing basic info. Please go back to Step 1.");
       return;
     }
     if (!matching || matching.skillIds.length === 0 || matching.interestIds.length === 0) {
-      setError("Missing skills/interests. Please go back to Section B.");
+      setError("Missing skills/interests. Please go back to Step 2.");
+      return;
+    }
+
+    if (!validatePersonalDetails()) {
+      setError(null);
       return;
     }
 
@@ -760,8 +966,16 @@ export function ProfileSetupPersonalPage() {
       preferredInterestIds: [],
     };
 
-    // Filter out empty projects
-    const cleanProjects = form.projects.filter((p) => p.project_name.trim());
+    let linksPayload;
+    let cleanProjects;
+    try {
+      linksPayload = buildLinksPayload(form.links);
+      cleanProjects = validateAndBuildProjects(form.projects);
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      setError(e.message ?? "Please check your profile details.");
+      return;
+    }
 
     const payload = {
       fullName: academic.fullName.trim(),
@@ -774,9 +988,9 @@ export function ProfileSetupPersonalPage() {
       preferredInterestIds: preferences.preferredInterestIds,
       bio: form.bio.trim() || null,
       fypIdea: form.fypIdea.trim() || null,
-      links: buildLinksPayload(form.links),
+      links: linksPayload,
       projects: cleanProjects,
-      profilePicture: null, // no upload endpoint yet
+      profilePicture: profilePictureData,
     };
 
     setSubmitting(true);
@@ -795,7 +1009,7 @@ export function ProfileSetupPersonalPage() {
   }
 
   return (
-    <SetupShell sectionLabel="Section D: Personal Context (Optional)">
+    <SetupShell sectionLabel="Step 4: Profile Details (Optional)">
       <div style={f.form}>
 
         <div style={f.avatarWrap}>
@@ -823,22 +1037,39 @@ export function ProfileSetupPersonalPage() {
           >
             Upload Profile Picture (Optional)
           </button>
+          <FieldError message={fieldErrors.image} />
         </div>
 
         <LabeledTextarea
           label="My Bio (Optional)"
           value={form.bio}
-          onChange={(v) => setForm((p) => ({ ...p, bio: v }))}
-          maxWords={100}
+          onChange={(v) => {
+            setForm((p) => ({ ...p, bio: v }));
+            setFieldErrors((prev) => {
+              const next = { ...prev };
+              delete next.bio;
+              return next;
+            });
+          }}
+          maxWords={MAX_BIO_WORDS}
           placeholder="Tell potential teammates about yourself…"
+          error={fieldErrors.bio}
         />
 
         <LabeledTextarea
           label="FYP/Thesis Idea (Optional)"
           value={form.fypIdea}
-          onChange={(v) => setForm((p) => ({ ...p, fypIdea: v }))}
-          maxWords={120}
+          onChange={(v) => {
+            setForm((p) => ({ ...p, fypIdea: v }));
+            setFieldErrors((prev) => {
+              const next = { ...prev };
+              delete next.fypIdea;
+              return next;
+            });
+          }}
+          maxWords={MAX_FYP_IDEA_WORDS}
           placeholder="Describe your final year project idea…"
+          error={fieldErrors.fypIdea}
         />
 
         <div style={f.fieldBlock}>
@@ -860,6 +1091,7 @@ export function ProfileSetupPersonalPage() {
               >
                 ×
               </button>
+              <FieldError message={fieldErrors[`link-${i}`]} />
             </div>
           ))}
           <div style={f.rightAlign}>
@@ -882,20 +1114,28 @@ export function ProfileSetupPersonalPage() {
               <div style={f.tableHeadRight}>URL (Github/Portfolio/Other)</div>
             </div>
             {form.projects.map((pr, i) => (
-              <div key={i} style={f.tableRow}>
-                <input
-                  type="text"
-                  value={pr.project_name}
-                  onChange={(e) => updateProject(i, "project_name", e.target.value)}
-                  style={f.tableInputLeft}
-                />
-                <input
-                  type="text"
-                  value={pr.project_link}
-                  onChange={(e) => updateProject(i, "project_link", e.target.value)}
-                  style={f.tableInputRight}
-                />
-              </div>
+              <React.Fragment key={i}>
+                <div style={f.tableRow}>
+                  <input
+                    type="text"
+                    value={pr.project_name}
+                    onChange={(e) => updateProject(i, "project_name", e.target.value)}
+                    style={f.tableInputLeft}
+                  />
+                  <input
+                    type="text"
+                    value={pr.project_link}
+                    onChange={(e) => updateProject(i, "project_link", e.target.value)}
+                    style={f.tableInputRight}
+                  />
+                </div>
+                {(fieldErrors[`project-${i}-name`] || fieldErrors[`project-${i}-link`]) && (
+                  <div style={f.tableErrorRow}>
+                    <FieldError message={fieldErrors[`project-${i}-name`]} />
+                    <FieldError message={fieldErrors[`project-${i}-link`]} />
+                  </div>
+                )}
+              </React.Fragment>
             ))}
           </div>
           <div style={f.rightAlign}>
@@ -1194,7 +1434,7 @@ const f: Record<string, React.CSSProperties> = {
     fontWeight: 500,
   },
   errorBanner: {
-    background: "#F99417",
+    background: "#e74c3c",
     color: "#ffffff",
     borderRadius: "8px",
     padding: "10px 14px",
@@ -1202,6 +1442,18 @@ const f: Record<string, React.CSSProperties> = {
     fontWeight: 600,
     marginBottom: "18px",
     lineHeight: "1.4",
+    animation: "fadeIn 0.2s ease",
+  },
+  fieldError: {
+    background: "#fde8e8",
+    color: "#c0392b",
+    border: "1px solid #f5b7b1",
+    borderRadius: "8px",
+    padding: "8px 10px",
+    fontSize: "12px",
+    fontWeight: 600,
+    lineHeight: "1.35",
+    marginTop: "8px",
     animation: "fadeIn 0.2s ease",
   },
   btnPrimary: {
@@ -1302,6 +1554,14 @@ const f: Record<string, React.CSSProperties> = {
     textAlign: "center",
   },
   tableRow: { display: "grid", gridTemplateColumns: "1fr 1.5fr" },
+  tableErrorRow: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1.5fr",
+    gap: "8px",
+    padding: "8px",
+    borderBottom: "1px solid #f0ecf8",
+    background: "#fff7f7",
+  },
   tableInputLeft: {
     border: "none",
     borderRight: "1.5px solid #E8E2E2",

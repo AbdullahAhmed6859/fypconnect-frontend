@@ -44,7 +44,39 @@ export async function fetchMatches(): Promise<MatchedPerson[]> {
 
   const json = await handleResponse<{ data: any[] }>(res);
 
-  return json.data.map((m) => ({
+  return json.data.map(normalizeMatch);
+}
+
+export async function fetchUpdatedMatchProfile(person: MatchedPerson): Promise<MatchedPerson> {
+  if (!person.matchId) return person;
+
+  const res = await fetch(`${API_BASE_URL}/matches/${person.matchId}/updated-profile`, {
+    credentials: "include",
+    headers: authHeaders(),
+  });
+
+  const json = await handleResponse<{ data: any }>(res);
+  const updatedUser = json.data?.updatedUser ?? json.data?.matchedUser ?? json.data;
+
+  return {
+    ...person,
+    id: updatedUser.userId ?? person.id,
+    name: updatedUser.fullName ?? person.name,
+    major: updatedUser.major ?? person.major,
+    year: formatYear(updatedUser.yearOfStudy ?? updatedUser.year ?? person.year),
+    skills: updatedUser.skills ?? person.skills,
+    interests: updatedUser.interests ?? person.interests,
+    bio: updatedUser.bio ?? updatedUser.biography ?? person.bio,
+    fypIdea: updatedUser.fypIdea ?? updatedUser.ideas ?? person.fypIdea,
+    projects: updatedUser.projects ?? person.projects,
+    links: updatedUser.links ?? person.links,
+    profilePicture: updatedUser.profilePicture ?? person.profilePicture,
+    hasProfileUpdated: false,
+  };
+}
+
+function normalizeMatch(m: any): MatchedPerson {
+  return {
     id: m.matchedUser.userId,
     matchId: m.matchId,
     name: m.matchedUser.fullName ?? "Unnamed Student",
@@ -61,7 +93,7 @@ export async function fetchMatches(): Promise<MatchedPerson[]> {
     hasProfileUpdated: m.hasProfileUpdated,
     matchStatus: "MUTUAL LIKE!",
     hasExistingChat: true,
-  }));
+  };
 }
 
 export async function likeProfile(targetUserId: number): Promise<{ isMutualMatch: boolean }> {
@@ -172,6 +204,14 @@ function normalizeProfile(p: any): Profile {
 
 function formatYear(value: unknown): string {
   if (value === null || value === undefined || value === "") return "Year N/A";
-  const text = String(value);
-  return text.toLowerCase().startsWith("year") ? text : `Year ${text}`;
+  const text = String(value).trim();
+  const numeric = Number(text.replace(/^year\s*/i, ""));
+  const labels: Record<number, string> = {
+    1: "Freshman",
+    2: "Sophomore",
+    3: "Junior",
+    4: "Senior",
+  };
+
+  return labels[numeric] ?? text;
 }

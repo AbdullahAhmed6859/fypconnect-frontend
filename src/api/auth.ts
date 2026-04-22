@@ -42,6 +42,13 @@ export interface LoginData {
 
 export interface MyProfileData {
   profileCompleted: boolean;
+  yearOfStudy?: string | number | null;
+  annualYearReview?: {
+    required: boolean;
+    reviewDate: string;
+    reviewYear: number;
+    dismissedYear?: number | null;
+  };
   [key: string]: unknown;
 }
 
@@ -249,6 +256,16 @@ export async function setupProfile(
   return handleResponse<ProfileSetupData>(res);
 }
 
+export async function dismissAnnualYearReview(): Promise<ApiEnvelope<unknown>> {
+  const res = await fetch(profileRoutes.dismissAnnualYearReview, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  return handleResponse<unknown>(res);
+}
+
 export async function getProfileSetupOptions(): Promise<ProfileSetupOptions> {
   const res = await fetch(profileRoutes.setupOptions, {
     method: "GET",
@@ -269,7 +286,10 @@ export async function getProfileSetupOptions(): Promise<ProfileSetupOptions> {
   const rawOptions = "years" in data ? data : data.data;
 
   return {
-    years: normalizeSetupOptions(rawOptions.years),
+    years: normalizeSetupOptions(rawOptions.years).map((year) => ({
+      ...year,
+      label: formatYearOfStudyLabel(year.value ?? year.label),
+    })),
     majors: normalizeSetupOptions(rawOptions.majors),
     skills: normalizeSetupOptions(rawOptions.skills),
     interests: normalizeSetupOptions(rawOptions.interests),
@@ -283,4 +303,17 @@ function normalizeSetupOptions(options: RawSetupOption[]): SetupOption[] {
     value: option.value,
     userCount: option.userCount,
   }));
+}
+
+function formatYearOfStudyLabel(value: unknown): string {
+  const text = String(value ?? "").trim();
+  const numeric = Number(text.replace(/^year\s*/i, ""));
+  const labels: Record<number, string> = {
+    1: "Freshman",
+    2: "Sophomore",
+    3: "Junior",
+    4: "Senior",
+  };
+
+  return labels[numeric] ?? text;
 }

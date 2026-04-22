@@ -17,7 +17,7 @@ export default function ErrorBanner({ message }: ErrorBannerProps) {
 
 const styles: Record<string, React.CSSProperties> = {
   banner: {
-    background: "#F99417",
+    background: "#e74c3c",
     color: "#ffffff",
     borderRadius: "8px",
     padding: "10px 14px",

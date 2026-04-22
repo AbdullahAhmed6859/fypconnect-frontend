@@ -70,7 +70,7 @@ export default function LeftPanel({
           ) : (
             chatPeople.map((person) => {
               const thread = chatThreads.get(person.id);
-              const status = thread?.chatStatus ?? "SENT";
+              const status = getPersonStatus(person, thread);
               return (
                 <PersonRow
                   key={person.id}
@@ -94,6 +94,13 @@ function getChatStatusClass(status: string): string {
   if (status === "NEW MESSAGES!")  return "messages";
   if (status === "PROFILE UPDATED!") return "updated";
   return "muted";
+}
+
+function getPersonStatus(person: MatchedPerson, thread?: ChatThread): string {
+  if (person.hasUnreadMessages) return "NEW MESSAGES!";
+  if (person.hasProfileUpdated) return "PROFILE UPDATED!";
+  if (person.isNewMatch) return "NEW MATCH!";
+  return thread?.chatStatus ?? "SENT";
 }
 
 // Individual row in the left panel list

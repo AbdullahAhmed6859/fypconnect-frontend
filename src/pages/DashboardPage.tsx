@@ -3,12 +3,13 @@ import LeftPanel from "../components/dashboard/LeftPanel";
 import ProfileCard from "../components/dashboard/ProfileCard";
 import ChatPanel from "../components/dashboard/ChatPanel";
 import ConfirmModal from "../components/dashboard/ConfirmModal";
-import { getProfileStatus } from "../api/auth";
+import { dismissAnnualYearReview, getMyProfile, unwrapMyProfile } from "../api/auth";
 import type { ChatMessage, ChatThread, MatchedPerson, Profile } from "../types/dashboard";
 import {
   fetchChatHistory,
   fetchMatches,
   fetchNextBrowseProfile,
+  fetchUpdatedMatchProfile,
   likeProfile,
   passProfile,
   unmatchUser,
@@ -25,6 +26,12 @@ type RightView =
   | { type: "noMore" }
   | { type: "empty" };
 
+type DashboardAccess =
+  | { status: "checking" }
+  | { status: "allowed" }
+  | { status: "restricted"; yearLabel: string }
+  | { status: "annualReview"; yearLabel: string; reviewDate: string; reviewYear: number };
+
 interface ModalState {
   title: string;
   body: string;
@@ -36,6 +43,7 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("matches");
   const [matches, setMatches] = useState<MatchedPerson[]>([]);
   const [startedChatIds, setStartedChatIds] = useState<Set<number>>(new Set());
+  const [dashboardAccess, setDashboardAccess] = useState<DashboardAccess>({ status: "checking" });
   const [loadingDashboard, setLoadingDashboard] = useState(true);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
 
@@ -49,9 +57,33 @@ export default function DashboardPage() {
   const [modal, setModal] = useState<ModalState | null>(null);
 
   useEffect(() => {
-    getProfileStatus()
-      .then(({ profileCompleted }) => {
-        if (!profileCompleted) window.location.href = "/profile/setup/academic";
+    getMyProfile()
+      .then((envelope) => {
+        const profile = unwrapMyProfile(envelope);
+        if (!profile?.profileCompleted) {
+          window.location.href = "/profile/setup/academic";
+          return;
+        }
+
+        const yearLabel = formatYearOfStudy(profile.yearOfStudy);
+        if (yearLabel === "Freshman" || yearLabel === "Sophomore") {
+          setDashboardAccess({ status: "restricted", yearLabel });
+          setLoadingDashboard(false);
+          return;
+        }
+
+        if (profile.annualYearReview?.required) {
+          setDashboardAccess({
+            status: "annualReview",
+            yearLabel,
+            reviewDate: profile.annualYearReview.reviewDate,
+            reviewYear: profile.annualYearReview.reviewYear,
+          });
+          setLoadingDashboard(false);
+          return;
+        }
+
+        setDashboardAccess({ status: "allowed" });
       })
       .catch(() => {
         window.location.href = "/login";
@@ -59,6 +91,8 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
+    if (dashboardAccess.status !== "allowed") return;
+
     let active = true;
 
     async function loadDashboard() {
@@ -94,7 +128,7 @@ export default function DashboardPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [dashboardAccess.status]);
 
   const newMatches = matches.filter((person) => !hasStartedChat(person));
   const chatPeople = matches.filter((person) => hasStartedChat(person));
@@ -171,13 +205,23 @@ export default function DashboardPage() {
     }
   }
 
-  function handleSelectMatch(personId: number) {
+  async function handleSelectMatch(personId: number) {
     const person = matches.find((p) => p.id === personId);
     if (!person) return;
 
     setSelectedMatchId(personId);
     setSelectedChatId(null);
     setRightView({ type: "matchProfile", person });
+
+    try {
+      const updatedPerson = await fetchUpdatedMatchProfile(person);
+      setMatches((prev) =>
+        prev.map((match) => (match.id === personId ? updatedPerson : match))
+      );
+      setRightView({ type: "matchProfile", person: updatedPerson });
+    } catch (err: unknown) {
+      showActionError(err, "Could not refresh this profile.");
+    }
   }
 
   async function handleStartChat(personId: number) {
@@ -294,6 +338,16 @@ export default function DashboardPage() {
     }
   }
 
+  async function handleIgnoreAnnualReview() {
+    try {
+      await dismissAnnualYearReview();
+      setDashboardAccess({ status: "allowed" });
+      setLoadingDashboard(true);
+    } catch (err: unknown) {
+      showActionError(err, "Could not dismiss the year-of-study reminder.");
+    }
+  }
+
   function showActionError(err: unknown, fallback: string) {
     const apiError = err as { message?: string };
     setDashboardError(apiError.message ?? fallback);
@@ -377,6 +431,56 @@ export default function DashboardPage() {
     }
   }
 
+  function renderRestrictedDashboard(yearLabel: string) {
+    return (
+      <div style={s.restrictedState}>
+        <div style={s.restrictedBox}>
+          <p style={s.restrictedMessage}>
+            As per our records, you are currently a {yearLabel}.
+            <br />
+            Browsing and matching features are restricted for Juniors and Seniors only.
+          </p>
+          <button
+            type="button"
+            style={s.btnUpdateProfile}
+            onClick={() => alert("Edit Year of Study screen coming soon.")}
+          >
+            Edit Year of Study
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  function renderAnnualReviewDashboard(access: Extract<DashboardAccess, { status: "annualReview" }>) {
+    return (
+      <div style={s.restrictedState}>
+        <div style={s.restrictedBox}>
+          <p style={s.restrictedMessage}>
+            As per our records of {access.reviewDate}, you are currently a {access.yearLabel}. If this is outdated,
+            please update your records manually.
+          </p>
+          <div style={s.reviewActions}>
+            <button
+              type="button"
+              style={s.btnUpdateProfile}
+              onClick={handleIgnoreAnnualReview}
+            >
+              Ignore and Proceed
+            </button>
+            <button
+              type="button"
+              style={s.btnUpdateProfile}
+              onClick={() => alert("Edit Year of Study screen coming soon.")}
+            >
+              Edit Year of Study
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <style>{`
@@ -431,23 +535,29 @@ export default function DashboardPage() {
         </nav>
 
         <div style={s.main}>
-          <LeftPanel
-            activeTab={activeTab}
-            onTabChange={handleTabChange}
-            pendingMatches={newMatches}
-            onSelectMatch={handleSelectMatch}
-            selectedMatchId={selectedMatchId}
-            chatPeople={chatPeople}
-            chatThreads={chatThreads}
-            onSelectChat={handleSelectChat}
-            selectedChatId={selectedChatId}
-          />
+          {dashboardAccess.status === "allowed" && (
+            <LeftPanel
+              activeTab={activeTab}
+              onTabChange={handleTabChange}
+              pendingMatches={newMatches}
+              onSelectMatch={handleSelectMatch}
+              selectedMatchId={selectedMatchId}
+              chatPeople={chatPeople}
+              chatThreads={chatThreads}
+              onSelectChat={handleSelectChat}
+              selectedChatId={selectedChatId}
+            />
+          )}
 
           <div style={s.rightPanel}>
             {loadingDashboard ? (
               <div style={s.emptyState}>
                 <div style={s.emptyTitle}>Loading dashboard...</div>
               </div>
+            ) : dashboardAccess.status === "restricted" ? (
+              renderRestrictedDashboard(dashboardAccess.yearLabel)
+            ) : dashboardAccess.status === "annualReview" ? (
+              renderAnnualReviewDashboard(dashboardAccess)
             ) : (
               renderRight()
             )}
@@ -466,6 +576,21 @@ export default function DashboardPage() {
       )}
     </>
   );
+}
+
+function formatYearOfStudy(value: unknown): string {
+  if (value === null || value === undefined || value === "") return "Year N/A";
+
+  const text = String(value).trim();
+  const numeric = Number(text.replace(/^year\s*/i, ""));
+  const labels: Record<number, string> = {
+    1: "Freshman",
+    2: "Sophomore",
+    3: "Junior",
+    4: "Senior",
+  };
+
+  return labels[numeric] ?? text;
 }
 
 const s: Record<string, React.CSSProperties> = {
@@ -582,6 +707,47 @@ const s: Record<string, React.CSSProperties> = {
     lineHeight: 1.6,
     color: "#6b6b7b",
     fontWeight: 400,
+  },
+  restrictedState: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "24px",
+    textAlign: "center",
+    overflow: "hidden",
+  },
+  restrictedBox: {
+    width: "100%",
+    maxWidth: "760px",
+    flex: 1,
+    minHeight: 0,
+    border: "1px solid #E8E2E2",
+    borderRadius: "14px",
+    background: "#ffffff",
+    boxShadow: "0 4px 24px rgba(93,56,145,0.07)",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "24px",
+    padding: "32px 44px",
+    animation: "fadeSlideUp 0.25s ease both",
+  },
+  restrictedMessage: {
+    maxWidth: "650px",
+    fontSize: "20px",
+    lineHeight: 1.55,
+    color: "#6b6b7b",
+    fontWeight: 600,
+    fontStyle: "italic",
+  },
+  reviewActions: {
+    display: "flex",
+    justifyContent: "center",
+    gap: "48px",
+    flexWrap: "wrap",
   },
   btnUpdateProfile: {
     marginTop: "18px",

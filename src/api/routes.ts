@@ -21,4 +21,5 @@ export const profileRoutes = {
   me: `${API_BASE_URL}/profile/me`,
   setup: `${API_BASE_URL}/profile/setup`,
   setupOptions: `${API_BASE_URL}/profile/skills-interests`,
+  dismissAnnualYearReview: `${API_BASE_URL}/profile/annual-year-review/dismiss`,
 };
