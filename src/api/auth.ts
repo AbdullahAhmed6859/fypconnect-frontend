@@ -43,6 +43,18 @@ export interface LoginData {
 export interface MyProfileData {
   profileCompleted: boolean;
   yearOfStudy?: string | number | null;
+  id?: number;
+  fullName?: string | null;
+  major?: string | null;
+  skills?: string[];
+  interests?: string[];
+  bio?: string | null;
+  projects?: { project_name: string; project_link?: string | null }[];
+  links?: Record<string, string>;
+  fypIdea?: string | null;
+  profilePicture?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
   annualYearReview?: {
     required: boolean;
     reviewDate: string;
@@ -256,6 +268,36 @@ export async function setupProfile(
   return handleResponse<ProfileSetupData>(res);
 }
 
+export interface UpdateProfilePayload {
+  fullName?: string;
+  yearId?: number;
+  majorId?: number;
+  skills?: number[];
+  interests?: number[];
+  preferredMajorIds?: number[];
+  preferredSkillIds?: number[];
+  preferredInterestIds?: number[];
+  bio?: string | null;
+  fypIdea?: string | null;
+  links?: {
+    github?: string;
+    linkedin?: string;
+    portfolio?: string;
+  };
+  projects?: {
+    project_name: string;
+    project_link?: string | null;
+  }[];
+  profilePicture?: string | null;
+}
+
+export interface PreferencesData {
+  preferredMajorIds: number[];
+  preferredSkillIds: number[];
+  preferredInterestIds: number[];
+  updatedAt?: string | null;
+}
+
 export async function dismissAnnualYearReview(): Promise<ApiEnvelope<unknown>> {
   const res = await fetch(profileRoutes.dismissAnnualYearReview, {
     method: "POST",
@@ -264,6 +306,51 @@ export async function dismissAnnualYearReview(): Promise<ApiEnvelope<unknown>> {
   });
 
   return handleResponse<unknown>(res);
+}
+
+export async function updateMyProfile(
+  payload: UpdateProfilePayload
+): Promise<ApiEnvelope<{ updatedAt?: string; profileUpdatedNotificationsSent?: boolean }>> {
+  const res = await fetch(profileRoutes.update, {
+    method: "PATCH",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  return handleResponse<{ updatedAt?: string; profileUpdatedNotificationsSent?: boolean }>(res);
+}
+
+export async function getMyPreferences(): Promise<ApiEnvelope<{ data: PreferencesData } | PreferencesData | null>> {
+  const res = await fetch(profileRoutes.preferences, {
+    method: "GET",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  return handleResponse<{ data: PreferencesData } | PreferencesData | null>(res);
+}
+
+export function unwrapPreferences(
+  envelope: ApiEnvelope<{ data: PreferencesData } | PreferencesData | null>
+): PreferencesData | null {
+  const data = envelope.data;
+  if (!data) return null;
+  if ("preferredMajorIds" in data) return data;
+  return data.data;
+}
+
+export async function updateMyPreferences(
+  payload: PreferencesData
+): Promise<ApiEnvelope<{ preferredMajorIds: number[]; preferredSkillIds: number[]; preferredInterestIds: number[] }>> {
+  const res = await fetch(profileRoutes.preferences, {
+    method: "PUT",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  return handleResponse<{ preferredMajorIds: number[]; preferredSkillIds: number[]; preferredInterestIds: number[] }>(res);
 }
 
 export async function getProfileSetupOptions(): Promise<ProfileSetupOptions> {

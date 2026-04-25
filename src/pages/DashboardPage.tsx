@@ -5,6 +5,7 @@ import ChatPanel from "../components/dashboard/ChatPanel";
 import ConfirmModal from "../components/dashboard/ConfirmModal";
 import { dismissAnnualYearReview, getMyProfile, unwrapMyProfile } from "../api/auth";
 import type { ChatMessage, ChatThread, MatchedPerson, Profile } from "../types/dashboard";
+import { mergeProfileDraft } from "../utils/profileDraft";
 import {
   fetchChatHistory,
   fetchMatches,
@@ -40,6 +41,8 @@ interface ModalState {
 }
 
 export default function DashboardPage() {
+  const [myProfileName, setMyProfileName] = useState("Me");
+  const [myProfilePicture, setMyProfilePicture] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>("matches");
   const [matches, setMatches] = useState<MatchedPerson[]>([]);
   const [startedChatIds, setStartedChatIds] = useState<Set<number>>(new Set());
@@ -60,6 +63,9 @@ export default function DashboardPage() {
     getMyProfile()
       .then((envelope) => {
         const profile = unwrapMyProfile(envelope);
+        const editableProfile = mergeProfileDraft(profile);
+        setMyProfileName(editableProfile.fullName || "Me");
+        setMyProfilePicture(editableProfile.profilePicture);
         if (!profile?.profileCompleted) {
           window.location.href = "/profile/setup/academic";
           return;
@@ -409,7 +415,7 @@ export default function DashboardPage() {
             <button
               type="button"
               style={s.btnUpdateProfile}
-              onClick={() => alert("Edit Profile screen coming soon.")}
+              onClick={() => (window.location.href = "/profile/me")}
             >
               Update My Profile
             </button>
@@ -443,7 +449,7 @@ export default function DashboardPage() {
           <button
             type="button"
             style={s.btnUpdateProfile}
-            onClick={() => alert("Edit Year of Study screen coming soon.")}
+            onClick={() => (window.location.href = "/profile/me/edit")}
           >
             Edit Year of Study
           </button>
@@ -471,7 +477,7 @@ export default function DashboardPage() {
             <button
               type="button"
               style={s.btnUpdateProfile}
-              onClick={() => alert("Edit Year of Study screen coming soon.")}
+              onClick={() => (window.location.href = "/profile/me/edit")}
             >
               Edit Year of Study
             </button>
@@ -514,10 +520,14 @@ export default function DashboardPage() {
         <nav style={s.topnav}>
           <button
             style={s.navMe}
-            onClick={() => alert("Edit Profile screen coming soon.")}
+            onClick={() => (window.location.href = "/profile/me")}
             title="View / edit your profile"
           >
-            <div style={s.navAvatar}>Me</div>
+            {myProfilePicture ? (
+              <img src={myProfilePicture} alt={`${myProfileName} avatar`} style={s.navAvatarImage} />
+            ) : (
+              <div style={s.navAvatar}>{getAvatarInitials(myProfileName)}</div>
+            )}
             <span>Me</span>
           </button>
 
@@ -631,6 +641,15 @@ const s: Record<string, React.CSSProperties> = {
     background: "#f0eaf8", border: "2px solid #5D3891",
     display: "flex", alignItems: "center", justifyContent: "center",
     fontSize: "11px", color: "#5D3891", flexShrink: 0, fontWeight: 700,
+  },
+  navAvatarImage: {
+    width: "34px",
+    height: "34px",
+    borderRadius: "50%",
+    objectFit: "cover",
+    border: "2px solid #ddd3eb",
+    background: "#ffffff",
+    flexShrink: 0,
   },
   navBrand: {
     flex: 1, textAlign: "center",
@@ -765,3 +784,14 @@ const s: Record<string, React.CSSProperties> = {
     transition: "all 0.15s ease",
   },
 };
+
+function getAvatarInitials(name: string) {
+  const initials = name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+
+  return initials || "ME";
+}

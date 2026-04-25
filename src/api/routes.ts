@@ -19,7 +19,9 @@ export const dashboardRoutes = {
 
 export const profileRoutes = {
   me: `${API_BASE_URL}/profile/me`,
+  update: `${API_BASE_URL}/profile/update`,
   setup: `${API_BASE_URL}/profile/setup`,
+  preferences: `${API_BASE_URL}/profile/preferences`,
   setupOptions: `${API_BASE_URL}/profile/skills-interests`,
   dismissAnnualYearReview: `${API_BASE_URL}/profile/annual-year-review/dismiss`,
 };

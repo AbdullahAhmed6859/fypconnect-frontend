@@ -105,6 +105,9 @@ export default function RegisterPage() {
             {showPassword ? <EyeOffIcon /> : <EyeIcon />}
           </button>
         </div>
+        <p style={styles.passwordNote}>
+          Password cannot be changed later.
+        </p>
 
         <ErrorBanner message={error} />
 
@@ -186,6 +189,13 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: "14px",
     color: "#6b6b7b",
     marginBottom: "20px",
+  },
+  passwordNote: {
+    fontSize: "12px",
+    color: "#6b6b7b",
+    marginTop: "-10px",
+    marginBottom: "18px",
+    fontStyle: "italic",
   },
   linkBtn: {
     background: "none",

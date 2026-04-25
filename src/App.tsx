@@ -10,6 +10,11 @@ import {
   ProfileSetupPreferencesPage,
   ProfileSetupPersonalPage,
 } from "./pages/Profilesetuppages";
+import {
+  EditProfilePage,
+  MatchSettingsPage,
+  MyProfileOverviewPage,
+} from "./pages/ProfileManagementPages";
 import { getProfileStatus } from "./api/auth";
 
 type GuardMode = "dashboard" | "setup";
@@ -88,6 +93,9 @@ function getPage() {
   if (path === "/verify-email")               return <VerifyEmailPage />;
   if (path === "/login")                      return <LoginPage />;
   if (path === "/dashboard")                  return <AuthenticatedRoute mode="dashboard"><DashboardPage /></AuthenticatedRoute>;
+  if (path === "/profile/me")                 return <AuthenticatedRoute mode="dashboard"><MyProfileOverviewPage /></AuthenticatedRoute>;
+  if (path === "/profile/me/edit")            return <AuthenticatedRoute mode="dashboard"><EditProfilePage /></AuthenticatedRoute>;
+  if (path === "/profile/me/match-settings")  return <AuthenticatedRoute mode="dashboard"><MatchSettingsPage /></AuthenticatedRoute>;
   if (path === "/profile/setup/academic")     return <AuthenticatedRoute mode="setup"><ProfileSetupAcademicPage /></AuthenticatedRoute>;
   if (path === "/profile/setup/matching")     return <AuthenticatedRoute mode="setup"><ProfileSetupMatchingPage /></AuthenticatedRoute>;
   if (path === "/profile/setup/preferences")  return <AuthenticatedRoute mode="setup"><ProfileSetupPreferencesPage /></AuthenticatedRoute>;
