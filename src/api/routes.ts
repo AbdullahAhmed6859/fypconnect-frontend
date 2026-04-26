@@ -25,3 +25,11 @@ export const profileRoutes = {
   setupOptions: `${API_BASE_URL}/profile/skills-interests`,
   dismissAnnualYearReview: `${API_BASE_URL}/profile/annual-year-review/dismiss`,
 };
+
+export const safetyRoutes = {
+  blockedUsers: `${API_BASE_URL}/safety/blocked-users`,
+  deleteAccount: `${API_BASE_URL}/safety/delete-account`,
+  block: `${API_BASE_URL}/safety/block`,
+  unblock: `${API_BASE_URL}/safety/unblock`,
+  unmatch: (matchId: number) => `${API_BASE_URL}/safety/matches/${matchId}/unmatch`,
+};

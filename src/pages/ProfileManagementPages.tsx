@@ -1,9 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  deleteMyAccount,
+  getBlockedUsers,
   getMyPreferences,
   getMyProfile,
   getProfileSetupOptions,
   logoutUser,
+  unblockUser,
   unwrapPreferences,
   unwrapMyProfile,
   updateMyPreferences,
@@ -20,14 +23,13 @@ import {
   buildLinksPayload,
   countWords,
   formatYearOfStudyLabel,
-  mergePreferencesDraft,
-  mergeProfileDraft,
   resolveSelectedIds,
   resolveSelectedLabels,
+  toBlockedUsers,
+  toEditablePreferencesDraft,
   toEditablePreferencesDraftFromApi,
+  toEditableProfileDraft,
   validateAndBuildProjects,
-  writePreferencesDraft,
-  writeProfileDraft,
   type BlockedUser,
   type EditablePreferencesDraft,
   type EditableProfileDraft,
@@ -176,9 +178,9 @@ function ProfileShell({
 
 export function MyProfileOverviewPage() {
   const { loading, error, profile } = useProfilePageState();
-  const [modal, setModal] = useState<{ title: string; body: string } | null>(null);
+  const [modal, setModal] = useState<{ title: string; body: string; confirmLabel?: string; onConfirm?: () => void } | null>(null);
 
-  const draft = useMemo(() => mergeProfileDraft(profile), [profile]);
+  const draft = useMemo(() => toEditableProfileDraft(profile), [profile]);
   const summaryRows = [
     { label: "FYP Idea", value: draft.fypIdea || "No FYP idea added yet." },
     { label: "Bio", value: draft.bio || "No bio added yet." },
@@ -233,7 +235,15 @@ export function MyProfileOverviewPage() {
               onClick={() =>
                 setModal({
                   title: "Delete account",
-                  body: "Delete account UI is ready, but backend integration is intentionally not connected yet.",
+                  body: "This will permanently delete your account and disable your active matches.",
+                  confirmLabel: "Delete",
+                  onConfirm: async () => {
+                    try {
+                      await deleteMyAccount();
+                    } finally {
+                      window.location.href = "/login";
+                    }
+                  },
                 })
               }
             >
@@ -265,8 +275,8 @@ export function MyProfileOverviewPage() {
         <ConfirmModal
           title={modal.title}
           body={modal.body}
-          confirmLabel="OK"
-          onConfirm={() => setModal(null)}
+          confirmLabel={modal.confirmLabel ?? "OK"}
+          onConfirm={modal.onConfirm ?? (() => setModal(null))}
           onCancel={() => setModal(null)}
         />
       )}
@@ -284,7 +294,7 @@ export function EditProfilePage() {
 
   useEffect(() => {
     if (!loading && !form) {
-      setForm(mergeProfileDraft(profile));
+      setForm(toEditableProfileDraft(profile));
     }
   }, [loading, profile, form]);
 
@@ -469,8 +479,7 @@ export function EditProfilePage() {
       });
 
       const refreshedProfile = unwrapMyProfile(await getMyProfile());
-      const refreshedForm = mergeProfileDraft(refreshedProfile);
-      writeProfileDraft(refreshedForm);
+      const refreshedForm = toEditableProfileDraft(refreshedProfile);
       setForm(refreshedForm);
       setFeedback({ type: "success", message: "Profile changes saved successfully." });
     } catch (err: unknown) {
@@ -484,7 +493,7 @@ export function EditProfilePage() {
   return (
     <ProfileShell
       title="Edit Profile"
-      helper="Changes to skills, interests, projects, bio, FYP idea, or links will affect how your profile appears. Frontend save is active for preview only."
+      helper="Changes to skills, interests, projects, bio, FYP idea, or links will affect how your profile appears."
     >
       {loading || !form ? (
         <LoadingBlock label="Loading your editable profile..." />
@@ -645,9 +654,13 @@ export function MatchSettingsPage() {
 
     async function loadPreferences() {
       try {
-        const envelope = await getMyPreferences();
-        const preferences = unwrapPreferences(envelope);
+        const [preferencesEnvelope, blockedUsersEnvelope] = await Promise.all([
+          getMyPreferences(),
+          getBlockedUsers(),
+        ]);
+        const preferences = unwrapPreferences(preferencesEnvelope);
         if (!active) return;
+        const blockedUsers = toBlockedUsers(blockedUsersEnvelope.data ?? []);
 
         setForm(
           toEditablePreferencesDraftFromApi(
@@ -655,16 +668,17 @@ export function MatchSettingsPage() {
             options.majors,
             options.skills,
             options.interests,
+            blockedUsers,
           )
         );
       } catch (err: unknown) {
         const apiError = err as { message?: string };
         if (!active) return;
 
-        setForm(mergePreferencesDraft());
+        setForm(toEditablePreferencesDraft());
         setFeedback({
           type: "error",
-          message: apiError.message ?? "Could not load saved preferences. You can still edit the screen layout.",
+          message: apiError.message ?? "Could not load saved preferences.",
         });
       }
     }
@@ -703,7 +717,6 @@ export function MatchSettingsPage() {
         ),
         blockedUsers: form.blockedUsers,
       };
-      writePreferencesDraft(updated);
       setForm(updated);
       setFeedback({ type: "success", message: "Preferences saved successfully." });
     } catch (err: unknown) {
@@ -714,19 +727,26 @@ export function MatchSettingsPage() {
     }
   }
 
-  function handleUnblock(userId: number) {
+  async function handleUnblock(userId: number) {
     if (!form) return;
-    const next = {
-      ...form,
-      blockedUsers: form.blockedUsers.filter((user) => user.id !== userId),
-    };
-    setForm(next);
+    try {
+      await unblockUser(userId);
+      const next = {
+        ...form,
+        blockedUsers: form.blockedUsers.filter((user) => user.id !== userId),
+      };
+      setForm(next);
+      setFeedback({ type: "success", message: "User unblocked successfully." });
+    } catch (err: unknown) {
+      const apiError = err as { message?: string };
+      setFeedback({ type: "error", message: apiError.message ?? "Could not unblock this user." });
+    }
   }
 
   return (
     <ProfileShell
       title="Preferences & Blocked Users"
-      helper="Update preferences to control who appears while browsing. Blocked users remain frontend-only until the backend exposes that flow."
+      helper="Update preferences to control who appears while browsing, and unblock users directly from this screen."
     >
       {loading || !form ? (
         <LoadingBlock label="Loading your match settings..." />
@@ -763,7 +783,7 @@ export function MatchSettingsPage() {
 
             <BlockedUsersEditor
               users={form.blockedUsers}
-              onUnblock={handleUnblock}
+              onUnblock={(userId) => void handleUnblock(userId)}
               onPreview={setPreviewUser}
             />
 
@@ -794,7 +814,7 @@ export function MatchSettingsPage() {
       {previewUser && (
         <ConfirmModal
           title={previewUser.name}
-          body={`${previewUser.major} ${previewUser.year}. This preview is frontend-only right now and will be replaced with the live profile later.`}
+          body={`${previewUser.major} ${previewUser.year}. This is the current blocked-user summary loaded from your account data.`}
           confirmLabel="Close"
           onConfirm={() => setPreviewUser(null)}
           onCancel={() => setPreviewUser(null)}

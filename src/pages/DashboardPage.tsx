@@ -5,7 +5,7 @@ import ChatPanel from "../components/dashboard/ChatPanel";
 import ConfirmModal from "../components/dashboard/ConfirmModal";
 import { dismissAnnualYearReview, getMyProfile, unwrapMyProfile } from "../api/auth";
 import type { ChatMessage, ChatThread, MatchedPerson, Profile } from "../types/dashboard";
-import { mergeProfileDraft } from "../utils/profileDraft";
+import { toEditableProfileDraft } from "../utils/profileDraft";
 import {
   fetchChatHistory,
   fetchMatches,
@@ -63,7 +63,7 @@ export default function DashboardPage() {
     getMyProfile()
       .then((envelope) => {
         const profile = unwrapMyProfile(envelope);
-        const editableProfile = mergeProfileDraft(profile);
+        const editableProfile = toEditableProfileDraft(profile);
         setMyProfileName(editableProfile.fullName || "Me");
         setMyProfilePicture(editableProfile.profilePicture);
         if (!profile?.profileCompleted) {
@@ -234,15 +234,6 @@ export default function DashboardPage() {
     await openChat(personId);
   }
 
-  function handleDismissNewMatch() {
-    setModal({
-      title: "Action not available yet",
-      body: "The backend does not expose unmatch or dismiss for mutual matches yet.",
-      confirmLabel: "OK",
-      onConfirm: () => setModal(null),
-    });
-  }
-
   function handleSelectChat(personId: number) {
     void openChat(personId);
   }
@@ -289,14 +280,14 @@ export default function DashboardPage() {
 
     setModal({
       title: `Unmatch ${person.name}?`,
-      body: "This will remove the match from both chat lists. This backend action is not available yet.",
+      body: "This will remove the match from both chat lists.",
       confirmLabel: "Unmatch",
       onConfirm: async () => {
         try {
           await unmatchUser(person.matchId ?? person.id);
           executeRemove(personId);
         } catch (err: unknown) {
-          showActionError(err, "Unmatch is not available yet.");
+          showActionError(err, "Could not unmatch this user.");
           setModal(null);
         }
       },
@@ -309,14 +300,14 @@ export default function DashboardPage() {
 
     setModal({
       title: `Block ${person.name}?`,
-      body: "Blocking is not available in the backend yet.",
+      body: "This will block the user and close the chat.",
       confirmLabel: "Block",
       onConfirm: async () => {
         try {
-          await blockUser(person.matchId ?? person.id);
+          await blockUser(person.id);
           executeRemove(personId);
         } catch (err: unknown) {
-          showActionError(err, "Block is not available yet.");
+          showActionError(err, "Could not block this user.");
           setModal(null);
         }
       },
@@ -376,8 +367,8 @@ export default function DashboardPage() {
           <ProfileCard
             profile={rightView.person}
             onLike={() => handleStartChat(rightView.person.id)}
-            onPass={handleDismissNewMatch}
-            contextLabel={`${rightView.person.matchStatus} Start a chat to move this match into Chats.`}
+            onPass={() => handleUnmatch(rightView.person.id)}
+            contextLabel={`${rightView.person.matchStatus} Start a chat to move this match into Chats, or remove the match with X.`}
           />
         );
 

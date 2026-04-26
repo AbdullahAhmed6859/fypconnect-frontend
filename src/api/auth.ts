@@ -1,4 +1,4 @@
-import { authRoutes, profileRoutes } from "./routes";
+import { authRoutes, profileRoutes, safetyRoutes } from "./routes";
 
 export interface RegisterPayload {
   email: string;
@@ -298,6 +298,15 @@ export interface PreferencesData {
   updatedAt?: string | null;
 }
 
+export interface BlockedUserData {
+  userId: number;
+  fullName: string | null;
+  major: string | null;
+  yearOfStudy: number | null;
+  profilePicture?: string | null;
+  blockedAt?: string | null;
+}
+
 export async function dismissAnnualYearReview(): Promise<ApiEnvelope<unknown>> {
   const res = await fetch(profileRoutes.dismissAnnualYearReview, {
     method: "POST",
@@ -351,6 +360,37 @@ export async function updateMyPreferences(
   });
 
   return handleResponse<{ preferredMajorIds: number[]; preferredSkillIds: number[]; preferredInterestIds: number[] }>(res);
+}
+
+export async function deleteMyAccount(): Promise<ApiEnvelope<{ deletedAt?: string }>> {
+  const res = await fetch(safetyRoutes.deleteAccount, {
+    method: "DELETE",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  return handleResponse<{ deletedAt?: string }>(res);
+}
+
+export async function getBlockedUsers(): Promise<ApiEnvelope<BlockedUserData[]>> {
+  const res = await fetch(safetyRoutes.blockedUsers, {
+    method: "GET",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  return handleResponse<BlockedUserData[]>(res);
+}
+
+export async function unblockUser(targetUserId: number): Promise<ApiEnvelope<{ unblockedUserId: number; removed: boolean }>> {
+  const res = await fetch(safetyRoutes.unblock, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ targetUserId }),
+  });
+
+  return handleResponse<{ unblockedUserId: number; removed: boolean }>(res);
 }
 
 export async function getProfileSetupOptions(): Promise<ProfileSetupOptions> {

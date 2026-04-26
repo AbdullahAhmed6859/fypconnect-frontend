@@ -1,5 +1,5 @@
 import type { Profile, MatchedPerson, ChatMessage, ChatThread } from "../types/dashboard";
-import { API_BASE_URL } from "./routes";
+import { API_BASE_URL, safetyRoutes } from "./routes";
 
 function authHeaders() {
   return { "Content-Type": "application/json" };
@@ -169,13 +169,24 @@ export async function sendChatMessage(matchId: number, content: string): Promise
 }
 
 export async function unmatchUser(matchId: number): Promise<void> {
-  void matchId;
-  throw { code: 501, message: "Unmatch is not available in the backend yet." };
+  const res = await fetch(safetyRoutes.unmatch(matchId), {
+    method: "POST",
+    credentials: "include",
+    headers: authHeaders(),
+  });
+
+  await handleResponse(res);
 }
 
-export async function blockUser(matchId: number): Promise<void> {
-  void matchId;
-  throw { code: 501, message: "Block is not available in the backend yet." };
+export async function blockUser(targetUserId: number): Promise<void> {
+  const res = await fetch(safetyRoutes.block, {
+    method: "POST",
+    credentials: "include",
+    headers: authHeaders(),
+    body: JSON.stringify({ targetUserId }),
+  });
+
+  await handleResponse(res);
 }
 
 export async function logoutUser(): Promise<void> {

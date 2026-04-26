@@ -1,4 +1,4 @@
-import type { MyProfileData, PreferencesData, SetupOption } from "../api/auth";
+import type { BlockedUserData, MyProfileData, PreferencesData, SetupOption } from "../api/auth";
 
 export type EditableProject = {
   project_name: string;
@@ -34,15 +34,6 @@ export type BlockedUser = {
   major: string;
   year: string;
 };
-
-const PROFILE_DRAFT_KEY = "fyp_profile_edit_draft";
-const PREFERENCES_DRAFT_KEY = "fyp_preferences_edit_draft";
-
-const DEFAULT_BLOCKED_USERS: BlockedUser[] = [
-  { id: 1, name: "Sarah Khan", subtitle: "CS Senior", major: "Computer Science", year: "Senior" },
-  { id: 2, name: "Person X", subtitle: "EE Senior", major: "Electrical Engineering", year: "Senior" },
-  { id: 3, name: "Person Y", subtitle: "CE Senior", major: "Computer Engineering", year: "Senior" },
-];
 
 export const MAX_BIO_WORDS = 100;
 export const MAX_FYP_IDEA_WORDS = 120;
@@ -113,7 +104,7 @@ export function toEditablePreferencesDraft(): EditablePreferencesDraft {
     preferredMajors: [],
     preferredSkills: [],
     preferredInterests: [],
-    blockedUsers: DEFAULT_BLOCKED_USERS,
+    blockedUsers: [],
     lastUpdatedLabel: "Not yet saved",
   };
 }
@@ -123,41 +114,33 @@ export function toEditablePreferencesDraftFromApi(
   majors: SetupOption[],
   skills: SetupOption[],
   interests: SetupOption[],
+  blockedUsers?: BlockedUser[],
 ) {
   const base = toEditablePreferencesDraft();
-  if (!preferences) return base;
+  if (!preferences) {
+    return {
+      ...base,
+      blockedUsers: blockedUsers ?? [],
+    };
+  }
 
   return {
     preferredMajors: resolveSelectedLabels(preferences.preferredMajorIds, majors),
     preferredSkills: resolveSelectedLabels(preferences.preferredSkillIds, skills),
     preferredInterests: resolveSelectedLabels(preferences.preferredInterestIds, interests),
-    blockedUsers: readPreferencesDraft()?.blockedUsers ?? base.blockedUsers,
+    blockedUsers: blockedUsers ?? [],
     lastUpdatedLabel: formatTimestamp(preferences.updatedAt),
   };
 }
 
-export function readProfileDraft() {
-  return readStorage<EditableProfileDraft>(PROFILE_DRAFT_KEY);
-}
-
-export function writeProfileDraft(draft: EditableProfileDraft) {
-  writeStorage(PROFILE_DRAFT_KEY, draft);
-}
-
-export function readPreferencesDraft() {
-  return readStorage<EditablePreferencesDraft>(PREFERENCES_DRAFT_KEY);
-}
-
-export function writePreferencesDraft(draft: EditablePreferencesDraft) {
-  writeStorage(PREFERENCES_DRAFT_KEY, draft);
-}
-
-export function mergeProfileDraft(profile: MyProfileData | null) {
-  return profile ? toEditableProfileDraft(profile) : readProfileDraft() ?? toEditableProfileDraft(null);
-}
-
-export function mergePreferencesDraft() {
-  return readPreferencesDraft() ?? toEditablePreferencesDraft();
+export function toBlockedUsers(items: BlockedUserData[]): BlockedUser[] {
+  return items.map((item) => ({
+    id: item.userId,
+    name: item.fullName?.trim() || "Unnamed Student",
+    subtitle: buildBlockedSubtitle(item.major, formatYearOfStudyLabel(item.yearOfStudy)),
+    major: item.major?.trim() || "Undeclared",
+    year: formatYearOfStudyLabel(item.yearOfStudy),
+  }));
 }
 
 export function resolveSelectedIds(labels: string[], options: SetupOption[]) {
@@ -249,15 +232,7 @@ function normalizeLabel(value: string) {
   return value.trim().toLowerCase();
 }
 
-function readStorage<T>(key: string): T | null {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeStorage(key: string, value: unknown) {
-  localStorage.setItem(key, JSON.stringify(value));
+function buildBlockedSubtitle(major: string | null | undefined, yearLabel: string) {
+  const majorText = major?.trim() || "Undeclared";
+  return `${majorText} ${yearLabel}`.trim();
 }
