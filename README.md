@@ -1,75 +1,84 @@
-# React + TypeScript + Vite
+# FYPConnect Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This folder contains the React + TypeScript frontend for FYPConnect, a student project-matching platform. It handles registration, email verification, login, profile setup, browsing possible collaborators, matches, chat, and profile management.
 
-Currently, two official plugins are available:
+The app is intentionally lightweight: it uses Vite for development/building, plain React components, and a small custom client-side router in `src/App.tsx` instead of a full routing library.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Related Repository
 
-## React Compiler
+This frontend works with the FYPConnect backend:
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+[View the backend repository](https://github.com/AbdullahAhmed6859/fypconnect-backend)
 
-Note: This will impact Vite dev & build performances.
+## Tech Stack
 
-## Expanding the ESLint configuration
+- React 19 with TypeScript
+- Vite for local development and builds
+- ESLint for code checks
+- Browser `fetch` for API calls
+- CSS files for styling and layout
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Getting Started
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+Install dependencies:
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Start the development server:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run dev
 ```
+
+The frontend expects the backend API to be running at:
+
+```text
+http://localhost:5000/api/v1
+```
+
+That base URL is currently defined in `src/api/routes.ts`.
+
+## Useful Scripts
+
+```bash
+npm run dev      # Start Vite locally
+npm run build    # Type-check and create a production build
+npm run lint     # Run ESLint
+npm run preview  # Preview the production build locally
+```
+
+## Folder Guide
+
+```text
+src/
+  api/          API route constants and request helpers
+  assets/       Static image/SVG assets used by the app
+  components/   Reusable UI components
+  data/         Local/static dashboard data
+  pages/        Full-page views such as login, register, dashboard, and profile setup
+  styles/       Shared global styling
+  types/        Shared TypeScript types
+  utils/        Small frontend utility helpers
+```
+
+## Main User Flow
+
+1. A new user registers from the default page.
+2. They verify their email through `/verify-email`.
+3. After login, the app checks whether their profile is complete.
+4. Incomplete profiles are sent through the profile setup pages.
+5. Completed profiles can access the dashboard, browse students, like/pass profiles, manage matches, chat, and update their own profile.
+
+## Notes for Studying the Code
+
+- `src/App.tsx` is the best starting point because it shows all page-level routes and access guards.
+- `src/api/routes.ts` maps frontend actions to backend endpoints.
+- `src/api/auth.ts` covers authentication, profile setup, profile editing, preferences, blocked users, and account deletion requests.
+- `src/api/dashboard.ts` covers discovery, matching, chat, liking, passing, blocking, and unmatching.
+- Most visible screens live in `src/pages`, while dashboard-specific pieces are split under `src/components/dashboard`.
+
+## Backend Dependency
+
+This frontend is designed to work with the sibling `fypconnect-backend` folder. Because the app uses cookie-based authentication, the backend must allow credentials from the frontend origin. In development, the backend is configured for `http://localhost:5173`.
