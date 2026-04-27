@@ -200,13 +200,6 @@ export function MyProfileOverviewPage() {
         <>
           {error && <ErrorBanner message={error} />}
 
-          <div style={overview.headerRow}>
-            <button type="button" style={overview.meBadge} onClick={() => window.location.reload()}>
-              <ProfileAvatar image={draft.profilePicture} label={draft.fullName} size={44} textSize={14} />
-              <span>Me</span>
-            </button>
-          </div>
-
           <div style={overview.profilePanel}>
             <div style={overview.imagePane}>
               <ProfileHeroImage image={draft.profilePicture} label={draft.fullName} />
@@ -414,10 +407,6 @@ export function EditProfilePage() {
     });
   }
 
-  function handleCancel() {
-    window.location.href = "/profile/me";
-  }
-
   async function handleSave() {
     if (!form) return;
     if (!validateForm()) {
@@ -501,7 +490,6 @@ export function EditProfilePage() {
         <>
           {error && <ErrorBanner message={error} />}
           {feedback?.type === "error" && <ErrorBanner message={feedback.message} />}
-          {feedback?.type === "success" && <SuccessBanner message={feedback.message} />}
 
           <div style={edit.avatarWrap}>
             <ProfileAvatar image={form.profilePicture} label={form.fullName} size={108} textSize={30} />
@@ -619,9 +607,6 @@ export function EditProfilePage() {
           </div>
 
           <div style={edit.actionRow}>
-            <button type="button" className="ghost-btn" style={edit.secondaryBtn} onClick={handleCancel}>
-              Cancel Changes
-            </button>
             <button
               type="button"
               className="primary-btn"
@@ -633,7 +618,10 @@ export function EditProfilePage() {
             </button>
           </div>
 
-          <div style={edit.lastUpdated}>Last Updated: {form.lastUpdatedLabel}</div>
+          <div style={edit.footerStatus}>
+            {feedback?.type === "success" && <SuccessBanner message={feedback.message} />}
+            <div style={edit.lastUpdated}>Last Updated: {form.lastUpdatedLabel}</div>
+          </div>
         </>
       )}
     </ProfileShell>
@@ -754,7 +742,6 @@ export function MatchSettingsPage() {
         <>
           {error && <ErrorBanner message={error} />}
           {feedback?.type === "error" && <ErrorBanner message={feedback.message} />}
-          {feedback?.type === "success" && <SuccessBanner message={feedback.message} />}
 
           <div style={formStyles.form}>
             <SearchableMultiSelect
@@ -793,9 +780,6 @@ export function MatchSettingsPage() {
           </div>
 
           <div style={edit.actionRow}>
-            <button type="button" className="ghost-btn" style={edit.secondaryBtn} onClick={() => (window.location.href = "/profile/me")}>
-              Cancel Changes
-            </button>
             <button
               type="button"
               className="primary-btn"
@@ -807,7 +791,10 @@ export function MatchSettingsPage() {
             </button>
           </div>
 
-          <div style={edit.lastUpdated}>Last Updated: {form.lastUpdatedLabel}</div>
+          <div style={edit.footerStatus}>
+            {feedback?.type === "success" && <SuccessBanner message={feedback.message} />}
+            <div style={edit.lastUpdated}>Last Updated: {form.lastUpdatedLabel}</div>
+          </div>
         </>
       )}
 
@@ -1412,8 +1399,9 @@ const statusStyles: Record<string, React.CSSProperties> = {
     padding: "10px 14px",
     fontSize: "13px",
     fontWeight: 600,
-    marginBottom: "18px",
+    marginBottom: 0,
     lineHeight: "1.4",
+    textAlign: "center",
   },
   fieldError: {
     background: "#fde8e8",
@@ -1635,23 +1623,6 @@ const formStyles: Record<string, React.CSSProperties> = {
 };
 
 const overview: Record<string, React.CSSProperties> = {
-  headerRow: {
-    display: "flex",
-    justifyContent: "flex-start",
-    marginBottom: "18px",
-  },
-  meBadge: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "10px",
-    border: "none",
-    background: "none",
-    cursor: "pointer",
-    color: "#1a1a2e",
-    fontWeight: 600,
-    fontSize: "16px",
-    fontFamily: "'DM Sans', sans-serif",
-  },
   profilePanel: {
     display: "grid",
     gridTemplateColumns: "minmax(280px, 1fr) minmax(280px, 1fr)",
@@ -1821,7 +1792,7 @@ const edit: Record<string, React.CSSProperties> = {
   },
   actionRow: {
     display: "flex",
-    justifyContent: "space-between",
+    justifyContent: "center",
     gap: "16px",
     flexWrap: "wrap",
     marginTop: "10px",
@@ -1833,18 +1804,6 @@ const edit: Record<string, React.CSSProperties> = {
     borderRadius: "8px",
     background: "#5D3891",
     color: "#ffffff",
-    fontFamily: "'DM Sans', sans-serif",
-    fontSize: "14px",
-    fontWeight: 600,
-    cursor: "pointer",
-  },
-  secondaryBtn: {
-    minWidth: "180px",
-    padding: "12px 22px",
-    border: "1.5px solid #5D3891",
-    borderRadius: "8px",
-    background: "#ffffff",
-    color: "#5D3891",
     fontFamily: "'DM Sans', sans-serif",
     fontSize: "14px",
     fontWeight: 600,
@@ -1862,11 +1821,17 @@ const edit: Record<string, React.CSSProperties> = {
     cursor: "pointer",
   },
   lastUpdated: {
-    marginTop: "18px",
     textAlign: "center",
     fontSize: "13px",
     color: "#6b6b7b",
     fontStyle: "italic",
+  },
+  footerStatus: {
+    marginTop: "18px",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "10px",
   },
 };
 

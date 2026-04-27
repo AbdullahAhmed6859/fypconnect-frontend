@@ -432,9 +432,11 @@ export default function DashboardPage() {
     return (
       <div style={s.restrictedState}>
         <div style={s.restrictedBox}>
-          <p style={s.restrictedMessage}>
+          <div style={s.restrictedTitle}>Update Year of Study</div>
+          <p style={s.restrictedBody}>
             As per our records, you are currently a {yearLabel}.
-            <br />
+          </p>
+          <p style={s.restrictedBody}>
             Browsing and matching features are restricted for Juniors and Seniors only.
           </p>
           <button
@@ -453,7 +455,8 @@ export default function DashboardPage() {
     return (
       <div style={s.restrictedState}>
         <div style={s.restrictedBox}>
-          <p style={s.restrictedMessage}>
+          <div style={s.restrictedTitle}>Review Year of Study</div>
+          <p style={s.restrictedBody}>
             As per our records of {access.reviewDate}, you are currently a {access.yearLabel}. If this is outdated,
             please update your records manually.
           </p>
@@ -741,23 +744,29 @@ const s: Record<string, React.CSSProperties> = {
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    gap: "24px",
+    gap: "18px",
     padding: "32px 44px",
     animation: "fadeSlideUp 0.25s ease both",
   },
-  restrictedMessage: {
-    maxWidth: "650px",
+  restrictedTitle: {
+    fontFamily: "'Fraunces', serif",
     fontSize: "20px",
-    lineHeight: 1.55,
+    fontWeight: 700,
+    color: "#1a1a2e",
+  },
+  restrictedBody: {
+    maxWidth: "430px",
+    fontSize: "14px",
+    lineHeight: 1.6,
     color: "#6b6b7b",
-    fontWeight: 600,
-    fontStyle: "italic",
+    fontWeight: 400,
   },
   reviewActions: {
     display: "flex",
     justifyContent: "center",
-    gap: "48px",
+    gap: "16px",
     flexWrap: "wrap",
+    marginTop: "6px",
   },
   btnUpdateProfile: {
     marginTop: "18px",

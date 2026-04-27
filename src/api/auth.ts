@@ -54,6 +54,7 @@ export interface MyProfileData {
   fypIdea?: string | null;
   profilePicture?: string | null;
   createdAt?: string;
+  profileCompletedAt?: string | null;
   updatedAt?: string;
   annualYearReview?: {
     required: boolean;
