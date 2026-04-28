@@ -158,9 +158,10 @@ const s: Record<string, React.CSSProperties> = {
   },
   headerMeta: { fontSize: "12px", color: "#6b6b7b", fontStyle: "italic" },
   messagesArea: {
-    flex: 1, overflowY: "auto",
+    flex: 1, overflowY: "auto", overflowX: "hidden",
     padding: "20px 20px 12px",
     display: "flex", flexDirection: "column", gap: "10px",
+    minWidth: 0,
   },
   emptyMsg: {
     margin: "auto", fontSize: "13px",
@@ -169,10 +170,16 @@ const s: Record<string, React.CSSProperties> = {
   msgRow: {
     display: "flex",
     animation: "fadeIn 0.2s ease",
+    maxWidth: "100%",
+    minWidth: 0,
   },
   bubble: {
     maxWidth: "68%", padding: "10px 14px",
     borderRadius: "16px", fontSize: "13px", lineHeight: 1.5,
+    minWidth: 0,
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
+    whiteSpace: "pre-wrap",
   },
   bubbleMe: {
     background: "#5D3891", color: "#fff",
