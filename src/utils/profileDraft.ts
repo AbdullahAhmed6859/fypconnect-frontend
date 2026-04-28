@@ -1,4 +1,4 @@
-import type { BlockedUserData, MyProfileData, PreferencesData, SetupOption } from "../api/auth";
+import type { BlockedUserData, MyProfileData, PreferencesData, SetupOption } from "../api/profileTypes";
 
 export type EditableProject = {
   project_name: string;

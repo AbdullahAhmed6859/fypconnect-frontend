@@ -3,20 +3,15 @@ import LeftPanel from "../../components/dashboard/LeftPanel";
 import ProfileCard from "../../components/dashboard/ProfileCard";
 import ChatPanel from "../../components/dashboard/ChatPanel";
 import ConfirmModal from "../../components/dashboard/ConfirmModal";
-import { dismissAnnualYearReview, getMyProfile, unwrapMyProfile } from "../../api/auth";
+import { dismissAnnualYearReview, getMyProfile, unwrapMyProfile } from "../../api/profileApi";
 import type { ChatMessage, ChatThread, MatchedPerson, Profile } from "../../types/dashboard";
 import { toEditableProfileDraft } from "../../utils/profileDraft";
-import {
-  fetchChatHistory,
-  fetchMatches,
-  fetchNextBrowseProfile,
-  fetchUpdatedMatchProfile,
-  likeProfile,
-  passProfile,
-  unmatchUser,
-  blockUser,
-  logoutUser,
-} from "../../api/dashboard";
+import { fetchNextBrowseProfile } from "../../api/discoveryApi";
+import { fetchMatches, fetchUpdatedMatchProfile } from "../../api/matchesApi";
+import { likeProfile, passProfile } from "../../api/browseApi";
+import { fetchChatHistory } from "../../api/chatApi";
+import { unmatchUser, blockUser } from "../../api/dashboardSafetyApi";
+import { logoutUser } from "../../api/sessionApi";
 
 type ActiveTab = "chats" | "matches";
 
@@ -796,4 +791,5 @@ function getAvatarInitials(name: string) {
 
   return initials || "ME";
 }
+
 

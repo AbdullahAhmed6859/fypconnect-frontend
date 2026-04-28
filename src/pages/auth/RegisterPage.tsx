@@ -2,7 +2,7 @@
 import AuthCard from "../../components/authcard";
 import InputField from "../../components/inputfield";
 import ErrorBanner from "../../components/errorbanner";
-import { registerUser } from "../../api/auth";
+import { registerUser } from "../../api/authApi";
 
 const HU_STUDENT_EMAIL_PATTERN = /^[^\s@]+@st\.habib\.edu\.pk$/i;
 

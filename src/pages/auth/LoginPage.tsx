@@ -2,7 +2,8 @@
 import AuthCard from "../../components/authcard";
 import InputField from "../../components/inputfield";
 import ErrorBanner from "../../components/errorbanner";
-import { loginUser, getProfileStatus } from "../../api/auth";
+import { loginUser } from "../../api/authApi";
+import { getProfileStatus } from "../../api/profileApi";
 
 const HU_STUDENT_EMAIL_PATTERN = /^[^\s@]+@st\.habib\.edu\.pk$/i;
 

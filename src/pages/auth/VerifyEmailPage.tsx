@@ -1,7 +1,7 @@
 ﻿import React, { useRef, useEffect, useState, useCallback } from "react";
 import AuthCard from "../../components/authcard";
 import ErrorBanner from "../../components/errorbanner";
-import { verifyEmail, resendVerification } from "../../api/auth";
+import { verifyEmail, resendVerification } from "../../api/authApi";
 
 const CODE_LENGTH = 6;const COUNTDOWN_SECONDS = 24 * 60 * 60;
 

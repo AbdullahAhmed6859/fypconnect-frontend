@@ -1,10 +1,10 @@
 ﻿/* eslint-disable react-refresh/only-export-components */
 import React, { useEffect, useMemo, useState } from "react";
+import { logoutUser } from "../../api/authApi";
 import {
   getProfileSetupOptions,
-  logoutUser,
   type ProfileSetupOptions,
-} from "../../api/auth";
+} from "../../api/profileApi";
 export type Option = { id: number; label: string; userCount?: number };
 
 export type AcademicData = {
@@ -858,5 +858,6 @@ export const f: Record<string, React.CSSProperties> = {
     boxSizing: "border-box",
   },
 };
+
 
 

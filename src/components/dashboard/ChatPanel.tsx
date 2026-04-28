@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import type { MatchedPerson, ChatMessage } from "../../types/dashboard";
-import { sendChatMessage } from "../../api/dashboard";
+import { sendChatMessage } from "../../api/chatApi";
 
 interface ChatPanelProps {
   person: MatchedPerson;

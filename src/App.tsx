@@ -1,21 +1,19 @@
 import { useEffect, useState, type ReactNode } from "react";
 import "./styles/global.css";
-import RegisterPage from "./pages/registerpage";
-import VerifyEmailPage from "./pages/verifyemailpage";
-import LoginPage from "./pages/loginpage";
-import DashboardPage from "./pages/DashboardPage";
+import RegisterPage from "./pages/auth/RegisterPage";
+import VerifyEmailPage from "./pages/auth/VerifyEmailPage";
+import LoginPage from "./pages/auth/LoginPage";
+import DashboardPage from "./pages/dashboard/DashboardPage";
 import {
   ProfileSetupAcademicPage,
   ProfileSetupMatchingPage,
   ProfileSetupPreferencesPage,
   ProfileSetupPersonalPage,
-} from "./pages/Profilesetuppages";
-import {
-  EditProfilePage,
-  MatchSettingsPage,
-  MyProfileOverviewPage,
-} from "./pages/ProfileManagementPages";
-import { getProfileStatus } from "./api/auth";
+} from "./pages/profile-setup/ProfileSetupPages";
+import { EditProfilePage } from "./pages/profile/EditProfilePage";
+import { MatchSettingsPage } from "./pages/profile/MatchSettingsPage";
+import { MyProfileOverviewPage } from "./pages/profile/MyProfileOverviewPage";
+import { getProfileStatus } from "./api/profileApi";
 
 type GuardMode = "dashboard" | "setup";
 

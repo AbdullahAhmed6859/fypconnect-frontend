@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useRef, useState } from "react";
-import { getMyProfile, unwrapMyProfile, updateMyProfile } from "../../api/auth";
+import { getMyProfile, unwrapMyProfile, updateMyProfile } from "../../api/profileApi";
 import {
   MAX_BIO_WORDS,
   MAX_FYP_IDEA_WORDS,

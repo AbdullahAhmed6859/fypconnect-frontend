@@ -1,14 +1,14 @@
 ﻿/* eslint-disable react-refresh/only-export-components */
 import React, { useEffect, useState } from "react";
+import { logoutUser } from "../../api/authApi";
 import {
   getMyProfile,
   getProfileSetupOptions,
-  logoutUser,
   unwrapMyProfile,
   type MyProfileData,
   type ProfileSetupOptions,
   type SetupOption,
-} from "../../api/auth";
+} from "../../api/profileApi";
 import {
   countWords,
   formatYearOfStudyLabel,
@@ -1271,5 +1271,6 @@ export const match: Record<string, React.CSSProperties> = {
     marginTop: "4px",
   },
 };
+
 
 

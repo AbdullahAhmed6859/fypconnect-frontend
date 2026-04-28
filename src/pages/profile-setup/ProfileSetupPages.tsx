@@ -1,5 +1,5 @@
 ﻿import React, { useRef, useState } from "react";
-import { setupProfile } from "../../api/auth";
+import { setupProfile } from "../../api/profileApi";
 import {
   AvatarPlaceholder,
   FieldError,

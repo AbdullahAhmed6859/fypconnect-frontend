@@ -1,11 +1,10 @@
 ﻿import { useEffect, useState } from "react";
 import {
-  getBlockedUsers,
   getMyPreferences,
-  unblockUser,
   unwrapPreferences,
   updateMyPreferences,
-} from "../../api/auth";
+} from "../../api/preferencesApi";
+import { getBlockedUsers, unblockUser } from "../../api/safetyApi";
 import ConfirmModal from "../../components/dashboard/ConfirmModal";
 import {
   resolveSelectedLabels,
@@ -210,6 +209,7 @@ export function MatchSettingsPage() {
     </ProfileShell>
   );
 }
+
 
 
 

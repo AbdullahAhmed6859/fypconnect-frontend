@@ -1,5 +1,5 @@
 ﻿import { useMemo, useState } from "react";
-import { deleteMyAccount } from "../../api/auth";
+import { deleteMyAccount } from "../../api/safetyApi";
 import ConfirmModal from "../../components/dashboard/ConfirmModal";
 import { toEditableProfileDraft } from "../../utils/profileDraft";
 import {
@@ -20,7 +20,7 @@ export function MyProfileOverviewPage() {
     { label: "Bio", value: draft.bio || "No bio added yet." },
     { label: "Skills", value: draft.skills.length ? draft.skills.join(", ") : "No skills selected yet." },
     { label: "Interests", value: draft.interests.length ? draft.interests.join(", ") : "No interests selected yet." },
-    { label: "Links", value: draft.links.filter(Boolean).length ? draft.links.filter(Boolean).join(" ? ") : "No links added yet." },
+    { label: "Links", value: draft.links.filter(Boolean).length ? draft.links.filter(Boolean).join(" | ") : "No links added yet." },
   ];
 
   return (
