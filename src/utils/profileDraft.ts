@@ -39,6 +39,15 @@ export const MAX_BIO_WORDS = 100;
 export const MAX_FYP_IDEA_WORDS = 120;
 export const MAX_PROFILE_IMAGE_BYTES = 5 * 1024 * 1024;
 
+export function isHttpUrl(value: string) {
+  try {
+    const parsed = new URL(value.trim());
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export function countWords(value: string) {
   return value.trim() ? value.trim().split(/\s+/).length : 0;
 }
@@ -169,6 +178,10 @@ export function buildLinksPayload(links: string[]) {
       throw new Error("Please enter valid URLs for your links.");
     }
 
+    if (!isHttpUrl(trimmed)) {
+      throw new Error("Profile links must start with http:// or https://.");
+    }
+
     const host = parsed.hostname.toLowerCase();
     let key = "portfolio";
 
@@ -201,10 +214,8 @@ export function validateAndBuildProjects(projects: EditableProject[]) {
     }
 
     if (link) {
-      try {
-        new URL(link);
-      } catch {
-        throw new Error("Please enter valid project URLs.");
+      if (!isHttpUrl(link)) {
+        throw new Error("Project links must start with http:// or https://.");
       }
 
       const normalized = link.toLowerCase();

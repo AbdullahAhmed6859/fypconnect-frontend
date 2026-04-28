@@ -2,10 +2,7 @@ import React, { forwardRef } from "react";
 
 interface InputFieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string;
-}
-
-// Simple labelled input — forwards ref so parent can autofocus
-const InputField = forwardRef<HTMLInputElement, InputFieldProps>(
+}const InputField = forwardRef<HTMLInputElement, InputFieldProps>(
   ({ label, style, ...props }, ref) => {
     return (
       <div style={styles.wrapper}>
@@ -44,15 +41,4 @@ const styles: Record<string, React.CSSProperties> = {
     outline: "none",
     transition: "border-color 0.15s ease, box-shadow 0.15s ease",
   },
-};
-
-// // Inject focus style via a <style> tag — inline styles can't handle :focus
-// const focusStyle = document.createElement("style");
-// focusStyle.textContent = `
-//   input:focus {
-//     border-color: #5D3891 !important;
-//     box-shadow: 0 0 0 3px rgba(93, 56, 145, 0.12) !important;
-//     background: #fff !important;
-//   }
-// `;
-// document.head.appendChild(focusStyle);
+};

@@ -2,10 +2,7 @@ import React from "react";
 
 interface ErrorBannerProps {
   message: string | null;
-}
-
-// Shown only when there's an error — blank space otherwise (matches wireframe)
-export default function ErrorBanner({ message }: ErrorBannerProps) {
+}export default function ErrorBanner({ message }: ErrorBannerProps) {
   if (!message) return null;
 
   return (

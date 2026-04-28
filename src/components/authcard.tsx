@@ -4,14 +4,10 @@ interface AuthCardProps {
   title: string;
   subtitle?: string;
   children: React.ReactNode;
-}
-
-// Centered card shell shared across Register, VerifyEmail, and Login
-export default function AuthCard({ title, subtitle, children }: AuthCardProps) {
+}export default function AuthCard({ title, subtitle, children }: AuthCardProps) {
   return (
     <div style={styles.page}>
       <div style={styles.card}>
-        {/* Logo / brand mark */}
         <div style={styles.brand}>
           <span style={styles.brandIcon}>⬡</span>
           <span style={styles.brandName}>FYPConnect</span>

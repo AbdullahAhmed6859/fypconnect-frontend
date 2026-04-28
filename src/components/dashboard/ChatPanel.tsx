@@ -7,6 +7,7 @@ interface ChatPanelProps {
   matchId: number;
   messages: ChatMessage[];
   onMessagesUpdate: (updated: ChatMessage[]) => void;
+  onError: (message: string) => void;
   onUnmatch: () => void;
   onBlock: () => void;
 }
@@ -16,6 +17,7 @@ export default function ChatPanel({
   matchId,
   messages,
   onMessagesUpdate,
+  onError,
   onUnmatch,
   onBlock,
 }: ChatPanelProps) {
@@ -23,15 +25,9 @@ export default function ChatPanel({
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const MAX_CHARS = 1000;
-
-  // Scroll to bottom whenever messages change
-  useEffect(() => {
+  const MAX_CHARS = 1000;  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
-
-  // Auto-focus the input when this panel mounts
-  useEffect(() => {
+  }, [messages]);  useEffect(() => {
     textareaRef.current?.focus();
   }, [person.id]);
 
@@ -40,17 +36,16 @@ export default function ChatPanel({
     if (!trimmed || sending) return;
 
     setSending(true);
-    setText("");
-
-    // Optimistically add the message immediately
-    const sent: ChatMessage = { from: "me", text: trimmed };
+    setText("");    const sent: ChatMessage = { from: "me", text: trimmed };
     const withSent = [...messages, sent];
     onMessagesUpdate(withSent);
 
     try {
       await sendChatMessage(matchId, trimmed);
-    } catch {
+    } catch (err: unknown) {
       onMessagesUpdate(messages);
+      const apiError = err as { message?: string };
+      onError(apiError.message ?? "Could not send this message. Please try again.");
     } finally {
       setSending(false);
     }
@@ -65,8 +60,6 @@ export default function ChatPanel({
 
   return (
     <div style={s.panel}>
-
-      {/* Header */}
       <div style={s.header}>
         <div style={s.headerAvatar}>👤</div>
         <div style={s.headerInfo}>
@@ -74,8 +67,6 @@ export default function ChatPanel({
           <div style={s.headerMeta}>{person.major} · {person.year}</div>
         </div>
       </div>
-
-      {/* Messages */}
       <div style={s.messagesArea}>
         {messages.length === 0 ? (
           <p style={s.emptyMsg}>Say hello! 👋</p>
@@ -95,11 +86,7 @@ export default function ChatPanel({
         )}
         <div ref={messagesEndRef} />
       </div>
-
-      {/* Char counter */}
       <div style={s.charCount}>{MAX_CHARS - text.length} characters remaining</div>
-
-      {/* Input bar */}
       <div style={s.inputBar}>
         <textarea
           ref={textareaRef}
@@ -120,8 +107,6 @@ export default function ChatPanel({
           →
         </button>
       </div>
-
-      {/* Unmatch / Block */}
       <div style={s.actionsRow}>
         <button style={s.btnUnmatch} onClick={onUnmatch}>Unmatch User</button>
         <button style={s.btnBlock} onClick={onBlock}>Block User</button>

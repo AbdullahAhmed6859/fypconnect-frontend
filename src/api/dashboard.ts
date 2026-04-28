@@ -1,6 +1,44 @@
 import type { Profile, MatchedPerson, ChatMessage, ChatThread } from "../types/dashboard";
 import { API_BASE_URL, safetyRoutes } from "./routes";
 
+type JsonRecord = Record<string, unknown>;
+
+type RawProfile = {
+  userId?: number;
+  fullName?: string | null;
+  yearOfStudy?: unknown;
+  year?: unknown;
+  major?: string | null;
+  skills?: unknown;
+  interests?: unknown;
+  bio?: string | null;
+  biography?: string | null;
+  projects?: unknown;
+  links?: unknown;
+  fypIdea?: string | null;
+  ideas?: string | null;
+  profilePicture?: string | null;
+};
+
+type RawMatch = {
+  matchId?: number;
+  matchedUser?: RawProfile;
+  lastMessagePreview?: string | null;
+  hasUnreadMessages?: boolean;
+  isNewMatch?: boolean;
+  hasProfileUpdated?: boolean;
+};
+
+type RawConversationMessage = {
+  senderId?: number;
+  content?: string;
+};
+
+type RawConversation = {
+  matchedUser?: RawProfile;
+  messages?: RawConversationMessage[];
+};
+
 function authHeaders() {
   return { "Content-Type": "application/json" };
 }
@@ -30,7 +68,7 @@ export async function fetchNextBrowseProfile(_excludeIds: number[]): Promise<Pro
     headers: authHeaders(),
   });
 
-  const json = await handleResponse<{ data: any[] }>(res);
+  const json = await handleResponse<{ data: RawProfile[] }>(res);
   const profiles = json.data.map(normalizeProfile);
 
   return profiles.find((profile) => !_excludeIds.includes(profile.id)) ?? null;
@@ -42,7 +80,7 @@ export async function fetchMatches(): Promise<MatchedPerson[]> {
     headers: authHeaders(),
   });
 
-  const json = await handleResponse<{ data: any[] }>(res);
+  const json = await handleResponse<{ data: RawMatch[] }>(res);
 
   return json.data.map(normalizeMatch);
 }
@@ -55,8 +93,8 @@ export async function fetchUpdatedMatchProfile(person: MatchedPerson): Promise<M
     headers: authHeaders(),
   });
 
-  const json = await handleResponse<{ data: any }>(res);
-  const updatedUser = json.data?.updatedUser ?? json.data?.matchedUser ?? json.data;
+  const json = await handleResponse<{ data: JsonRecord }>(res);
+  const updatedUser = toRawProfile(json.data.updatedUser ?? json.data.matchedUser ?? json.data);
 
   return {
     ...person,
@@ -64,29 +102,31 @@ export async function fetchUpdatedMatchProfile(person: MatchedPerson): Promise<M
     name: updatedUser.fullName ?? person.name,
     major: updatedUser.major ?? person.major,
     year: formatYear(updatedUser.yearOfStudy ?? updatedUser.year ?? person.year),
-    skills: updatedUser.skills ?? person.skills,
-    interests: updatedUser.interests ?? person.interests,
+    skills: toStringArray(updatedUser.skills).length ? toStringArray(updatedUser.skills) : person.skills,
+    interests: toStringArray(updatedUser.interests).length ? toStringArray(updatedUser.interests) : person.interests,
     bio: updatedUser.bio ?? updatedUser.biography ?? person.bio,
     fypIdea: updatedUser.fypIdea ?? updatedUser.ideas ?? person.fypIdea,
-    projects: updatedUser.projects ?? person.projects,
-    links: updatedUser.links ?? person.links,
+    projects: Array.isArray(updatedUser.projects) ? updatedUser.projects : person.projects,
+    links: isRecord(updatedUser.links) ? toStringRecord(updatedUser.links) : person.links,
     profilePicture: updatedUser.profilePicture ?? person.profilePicture,
     hasProfileUpdated: false,
   };
 }
 
-function normalizeMatch(m: any): MatchedPerson {
+function normalizeMatch(m: RawMatch): MatchedPerson {
+  const matchedUser = m.matchedUser ?? {};
+
   return {
-    id: m.matchedUser.userId,
+    id: matchedUser.userId ?? 0,
     matchId: m.matchId,
-    name: m.matchedUser.fullName ?? "Unnamed Student",
-    major: m.matchedUser.major ?? "Undeclared",
-    year: formatYear(m.matchedUser.yearOfStudy),
-    skills: m.matchedUser.skills ?? [],
-    interests: m.matchedUser.interests ?? [],
-    bio: m.matchedUser.bio,
-    fypIdea: m.matchedUser.fypIdea,
-    profilePicture: m.matchedUser.profilePicture,
+    name: matchedUser.fullName ?? "Unnamed Student",
+    major: matchedUser.major ?? "Undeclared",
+    year: formatYear(matchedUser.yearOfStudy),
+    skills: toStringArray(matchedUser.skills),
+    interests: toStringArray(matchedUser.interests),
+    bio: matchedUser.bio ?? undefined,
+    fypIdea: matchedUser.fypIdea ?? undefined,
+    profilePicture: matchedUser.profilePicture,
     lastMessagePreview: m.lastMessagePreview,
     hasUnreadMessages: m.hasUnreadMessages,
     isNewMatch: m.isNewMatch,
@@ -143,14 +183,15 @@ export async function fetchChatHistory(matchId: number): Promise<ChatThread | nu
 
   if (res.status === 403 || res.status === 404) return null;
 
-  const json = await handleResponse<{ data: any }>(res);
+  const json = await handleResponse<{ data: RawConversation }>(res);
   const d = json.data;
+  const matchedUserId = d.matchedUser?.userId ?? 0;
 
   return {
-    personId: d.matchedUser.userId,
-    messages: d.messages.map((m: any) => ({
-      from: m.senderId === d.matchedUser.userId ? "them" : "me",
-      text: m.content,
+    personId: matchedUserId,
+    messages: (d.messages ?? []).map((m) => ({
+      from: m.senderId === matchedUserId ? "them" : "me",
+      text: m.content ?? "",
     })),
     chatStatus: "SEEN",
   } as ChatThread;
@@ -197,20 +238,42 @@ export async function logoutUser(): Promise<void> {
   });
 }
 
-function normalizeProfile(p: any): Profile {
+function normalizeProfile(p: RawProfile): Profile {
   return {
-    id: p.userId,
+    id: p.userId ?? 0,
     name: p.fullName ?? "Unnamed Student",
     year: formatYear(p.yearOfStudy),
     major: p.major ?? "Undeclared",
-    skills: p.skills ?? [],
-    interests: p.interests ?? [],
+    skills: toStringArray(p.skills),
+    interests: toStringArray(p.interests),
     bio: p.bio ?? undefined,
-    projects: p.projects ?? [],
-    links: p.links ?? {},
+    projects: Array.isArray(p.projects) ? p.projects : [],
+    links: toStringRecord(p.links),
     fypIdea: p.fypIdea ?? undefined,
     profilePicture: p.profilePicture ?? null,
   };
+}
+
+function toRawProfile(value: unknown): RawProfile {
+  return isRecord(value) ? (value as RawProfile) : {};
+}
+
+function toStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+function toStringRecord(value: unknown): Record<string, string> {
+  if (!isRecord(value)) return {};
+
+  return Object.fromEntries(
+    Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === "string")
+  );
+}
+
+function isRecord(value: unknown): value is JsonRecord {
+  return typeof value === "object" && value !== null;
 }
 
 function formatYear(value: unknown): string {

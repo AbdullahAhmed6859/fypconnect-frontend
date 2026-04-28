@@ -1,17 +1,13 @@
-import React from "react";
+﻿import React from "react";
 import type { MatchedPerson, ChatThread } from "../../types/dashboard";
 
 type ActiveTab = "chats" | "matches";
 
 interface LeftPanelProps {
   activeTab: ActiveTab;
-  onTabChange: (tab: ActiveTab) => void;
-  // New Matches tab
-  pendingMatches: MatchedPerson[];         // mutual matches without a started chat
+  onTabChange: (tab: ActiveTab) => void;  pendingMatches: MatchedPerson[];
   onSelectMatch: (id: number) => void;
-  selectedMatchId: number | null;
-  // Chats tab
-  chatPeople: MatchedPerson[];             // people you have active chats with
+  selectedMatchId: number | null;  chatPeople: MatchedPerson[];
   chatThreads: Map<number, ChatThread>;
   onSelectChat: (id: number) => void;
   selectedChatId: number | null;
@@ -30,8 +26,6 @@ export default function LeftPanel({
 }: LeftPanelProps) {
   return (
     <div style={s.panel}>
-
-      {/* Tab switcher */}
       <div style={s.tabBar}>
         <button
           style={{ ...s.tab, ...(activeTab === "chats" ? s.tabActive : {}) }}
@@ -46,8 +40,6 @@ export default function LeftPanel({
           New Matches
         </button>
       </div>
-
-      {/* List */}
       <div style={s.list}>
         {activeTab === "matches" ? (
           pendingMatches.length === 0 ? (
@@ -56,7 +48,7 @@ export default function LeftPanel({
             pendingMatches.map((person) => (
               <PersonRow
                 key={person.id}
-                name={`${person.name} — ${person.major.split(" ")[0]} ${person.year}`}
+                name={`${person.name} - ${person.major.split(" ")[0]} ${person.year}`}
                 subLabel={person.matchStatus}
                 subClass={person.matchStatus.includes("MUTUAL") ? "mutual" : "liked"}
                 isActive={selectedMatchId === person.id}
@@ -74,7 +66,7 @@ export default function LeftPanel({
               return (
                 <PersonRow
                   key={person.id}
-                  name={`${person.name} — ${person.major.split(" ")[0]} ${person.year}`}
+                  name={`${person.name} - ${person.major.split(" ")[0]} ${person.year}`}
                   subLabel={status}
                   subClass={getChatStatusClass(status)}
                   isActive={selectedChatId === person.id}
@@ -101,10 +93,7 @@ function getPersonStatus(person: MatchedPerson, thread?: ChatThread): string {
   if (person.hasProfileUpdated) return "PROFILE UPDATED!";
   if (person.isNewMatch) return "NEW MATCH!";
   return thread?.chatStatus ?? "SENT";
-}
-
-// Individual row in the left panel list
-function PersonRow({
+}function PersonRow({
   name, subLabel, subClass, isActive, onClick,
 }: {
   name: string;
@@ -208,3 +197,4 @@ const s: Record<string, React.CSSProperties> = {
     whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
   },
 };
+
