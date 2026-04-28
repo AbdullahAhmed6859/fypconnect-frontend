@@ -274,9 +274,9 @@ export default function DashboardPage() {
     if (!person) return;
 
     setModal({
-      title: `Unmatch ${person.name}?`,
-      body: "This will remove the match from both chat lists.",
-      confirmLabel: "Unmatch",
+      title: `End match with ${person.name}?`,
+      body: "This permanently removes the match from chats and browsing for both users.",
+      confirmLabel: "End Match",
       onConfirm: async () => {
         try {
           await unmatchUser(person.matchId ?? person.id);
@@ -294,15 +294,15 @@ export default function DashboardPage() {
     if (!person) return;
 
     setModal({
-      title: `Block ${person.name}?`,
-      body: "This will block the user and close the chat.",
-      confirmLabel: "Block",
+      title: `Restrict ${person.name}?`,
+      body: "This removes the match and deletes this chat history. You can unrestrict them later in Match Settings, which allows a fresh match if you both come across each other again.",
+      confirmLabel: "Restrict",
       onConfirm: async () => {
         try {
           await blockUser(person.id);
           executeRemove(personId);
         } catch (err: unknown) {
-          showActionError(err, "Could not block this user.");
+          showActionError(err, "Could not restrict this user.");
           setModal(null);
         }
       },
@@ -395,7 +395,7 @@ export default function DashboardPage() {
                 and interaction history.
               </p>
               <p style={s.noMoreBody}>
-                Consider updating your profile and preferences or unblocking users to
+                Consider updating your profile and preferences or unrestricting users to
                 continue browsing.
               </p>
             </div>

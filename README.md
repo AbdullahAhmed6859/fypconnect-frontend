@@ -1,6 +1,6 @@
 # FYPConnect Frontend
 
-React + TypeScript frontend for FYPConnect, a final-year project teammate matching platform. The app covers registration, email verification, login, profile setup, collaborator discovery, likes/passes, matches, chat, profile editing, match preferences, blocked users, and account deletion.
+React + TypeScript frontend for FYPConnect, a final-year project teammate matching platform. The app covers registration, email verification, login, profile setup, collaborator discovery, likes/passes, matches, chat, profile editing, match preferences, restricted users, and account deletion.
 
 The frontend is intentionally lightweight: Vite for development/builds, React components, a small custom route guard in `src/App.tsx`, and a typed fetch-based API layer.
 
@@ -81,7 +81,7 @@ src/
     authApi.ts                 Authentication requests
     profileApi.ts              Profile setup, status, and profile update requests
     preferencesApi.ts          Match preference requests
-    safetyApi.ts               Account deletion and blocked-user requests
+    safetyApi.ts               Account deletion and restricted-user requests
     discoveryApi.ts            Browse/discovery requests
     browseApi.ts               Like/pass actions
     matchesApi.ts              Match list and updated-profile requests
@@ -114,7 +114,7 @@ src/
 3. User logs in.
 4. App checks whether profile setup is complete.
 5. Incomplete profiles are routed through setup.
-6. Complete profiles can browse collaborators, like/pass profiles, manage matches, chat, edit their profile, update match preferences, and manage blocked users.
+6. Complete profiles can browse collaborators, like/pass profiles, manage matches, chat, edit their profile, update match preferences, and manage restricted users.
 
 ## Validation and Feedback
 

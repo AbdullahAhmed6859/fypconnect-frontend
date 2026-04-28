@@ -451,7 +451,7 @@ export function BlockedUsersEditor({
 
   return (
     <div style={formStyles.fieldBlock}>
-      <label style={formStyles.label}>Unblock Users (Select to unblock) (Optional)</label>
+      <label style={formStyles.label}>Unrestrict Users (Select to unrestrict) (Optional)</label>
 
       <div style={formStyles.searchBar}>
         <SearchIcon />
@@ -459,14 +459,14 @@ export function BlockedUsersEditor({
           type="text"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search blocked users"
+          placeholder="Search restricted users"
           style={formStyles.searchInput}
         />
       </div>
 
       <div style={formStyles.optionList}>
         {filteredUsers.length === 0 ? (
-          <div style={formStyles.noResults}>No blocked users found.</div>
+          <div style={formStyles.noResults}>No restricted users found.</div>
         ) : (
           filteredUsers.map((user) => (
             <div key={user.id} style={blocked.row}>
@@ -478,7 +478,7 @@ export function BlockedUsersEditor({
                 <button type="button" className="icon-btn" style={blocked.iconBtn} onClick={() => onPreview(user)} aria-label={`View ${user.name}`}>
                   <UserIcon />
                 </button>
-                <button type="button" className="icon-btn" style={blocked.iconBtn} onClick={() => onUnblock(user.id)} aria-label={`Unblock ${user.name}`}>
+                <button type="button" className="icon-btn" style={blocked.iconBtn} onClick={() => onUnblock(user.id)} aria-label={`Unrestrict ${user.name}`}>
                   x
                 </button>
               </div>

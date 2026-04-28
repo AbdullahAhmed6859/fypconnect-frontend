@@ -123,17 +123,17 @@ export function MatchSettingsPage() {
         blockedUsers: form.blockedUsers.filter((user) => user.id !== userId),
       };
       setForm(next);
-      setFeedback({ type: "success", message: "User unblocked successfully." });
+      setFeedback({ type: "success", message: "User unrestricted successfully." });
     } catch (err: unknown) {
       const apiError = err as { message?: string };
-      setFeedback({ type: "error", message: apiError.message ?? "Could not unblock this user." });
+      setFeedback({ type: "error", message: apiError.message ?? "Could not unrestrict this user." });
     }
   }
 
   return (
     <ProfileShell
-      title="Preferences & Blocked Users"
-      helper="Update preferences to control who appears while browsing, and unblock users directly from this screen."
+      title="Preferences & Restricted Users"
+      helper="Update preferences to control who appears while browsing, and unrestrict users directly from this screen."
     >
       {loading || !form ? (
         <LoadingBlock label="Loading your match settings..." />
@@ -174,7 +174,7 @@ export function MatchSettingsPage() {
             />
 
             <div style={match.note}>
-              View a blocked profile with the profile icon. Use the X button to remove that user from your blocked list.
+              View a restricted profile with the profile icon. Use the X button to unrestrict that user.
             </div>
           </div>
 
@@ -200,7 +200,7 @@ export function MatchSettingsPage() {
       {previewUser && (
         <ConfirmModal
           title={previewUser.name}
-          body={`${previewUser.major} ${previewUser.year}. This is the current blocked-user summary loaded from your account data.`}
+          body={`${previewUser.major} ${previewUser.year}. This is the current restricted-user summary loaded from your account data.`}
           confirmLabel="Close"
           onConfirm={() => setPreviewUser(null)}
           onCancel={() => setPreviewUser(null)}

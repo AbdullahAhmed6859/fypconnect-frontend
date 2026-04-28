@@ -90,7 +90,7 @@ export function MyProfileOverviewPage() {
               style={overview.actionBtn}
               onClick={() => (window.location.href = "/profile/me/match-settings")}
             >
-              Preferences &<br />Blocked Users
+              Preferences &<br />Restricted Users
             </button>
           </div>
 

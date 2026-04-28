@@ -108,11 +108,11 @@ export default function ChatPanel({
         </button>
       </div>
       <div style={s.actionsRow}>
-        <button style={s.btnUnmatch} onClick={onUnmatch}>Unmatch User</button>
-        <button style={s.btnBlock} onClick={onBlock}>Block User</button>
+        <button style={s.btnUnmatch} onClick={onUnmatch}>End Match</button>
+        <button style={s.btnBlock} onClick={onBlock}>Restrict User</button>
       </div>
       <p style={s.footnote}>
-        Blocked users will never appear again unless unblocked in Match Settings. · Matching again will not restore previous messages.
+        End Match is permanent. Restrict removes this chat now, but you can unrestrict later and possibly match again with a fresh chat.
       </p>
 
     </div>
