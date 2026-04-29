@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { deleteMyAccount } from "../../api/safetyApi";
 import ConfirmModal from "../../components/dashboard/ConfirmModal";
 import { toEditableProfileDraft } from "../../utils/profileDraft";
@@ -10,9 +10,22 @@ import {
   overview,
   useProfilePageState,
 } from "./shared";
+
+type ModalState =
+  | {
+      type: "confirm";
+      title: string;
+      body: string;
+      confirmLabel?: string;
+      onConfirm?: () => void;
+    }
+  | { type: "type-delete" };
+
 export function MyProfileOverviewPage() {
   const { loading, error, profile } = useProfilePageState();
-  const [modal, setModal] = useState<{ title: string; body: string; confirmLabel?: string; onConfirm?: () => void } | null>(null);
+  const [modal, setModal] = useState<ModalState | null>(null);
+  const [deleteConfirmationText, setDeleteConfirmationText] = useState("");
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const draft = useMemo(() => toEditableProfileDraft(profile), [profile]);
   const summaryRows = [
@@ -61,15 +74,13 @@ export function MyProfileOverviewPage() {
               style={overview.deleteBtn}
               onClick={() =>
                 setModal({
+                  type: "confirm",
                   title: "Delete account",
                   body: "This will permanently delete your account and disable your active matches.",
                   confirmLabel: "Delete",
-                  onConfirm: async () => {
-                    try {
-                      await deleteMyAccount();
-                    } finally {
-                      window.location.href = "/login";
-                    }
+                  onConfirm: () => {
+                    setDeleteConfirmationText("");
+                    setModal({ type: "type-delete" });
                   },
                 })
               }
@@ -98,7 +109,7 @@ export function MyProfileOverviewPage() {
         </>
       )}
 
-      {modal && (
+      {modal?.type === "confirm" && (
         <ConfirmModal
           title={modal.title}
           body={modal.body}
@@ -107,7 +118,53 @@ export function MyProfileOverviewPage() {
           onCancel={() => setModal(null)}
         />
       )}
+
+      {modal?.type === "type-delete" && (
+        <ConfirmModal
+          title="Type DELETE"
+          body="Type DELETE to confirm account deletion."
+          confirmLabel={deletingAccount ? "Deleting..." : "Delete"}
+          confirmDisabled={deleteConfirmationText !== "DELETE" || deletingAccount}
+          onConfirm={async () => {
+            if (deleteConfirmationText !== "DELETE" || deletingAccount) return;
+
+            try {
+              setDeletingAccount(true);
+              await deleteMyAccount();
+            } finally {
+              window.location.href = "/login";
+            }
+          }}
+          onCancel={() => {
+            if (deletingAccount) return;
+            setDeleteConfirmationText("");
+            setModal(null);
+          }}
+        >
+          <input
+            autoFocus
+            value={deleteConfirmationText}
+            onChange={(event) => setDeleteConfirmationText(event.target.value)}
+            placeholder="DELETE"
+            style={deleteConfirmStyles.input}
+          />
+        </ConfirmModal>
+      )}
     </ProfileShell>
   );
 }
 
+const deleteConfirmStyles: Record<string, CSSProperties> = {
+  input: {
+    width: "100%",
+    boxSizing: "border-box",
+    border: "1.5px solid #E8E2E2",
+    borderRadius: "8px",
+    padding: "11px 12px",
+    marginBottom: "18px",
+    fontFamily: "'DM Sans', sans-serif",
+    fontSize: "14px",
+    color: "#1a1a2e",
+    outline: "none",
+  },
+};

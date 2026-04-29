@@ -4,25 +4,39 @@ interface ConfirmModalProps {
   title: string;
   body: string;
   confirmLabel: string;
+  confirmDisabled?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
+  children?: React.ReactNode;
 }
 
 export default function ConfirmModal({
   title,
   body,
   confirmLabel,
+  confirmDisabled = false,
   onConfirm,
   onCancel,
+  children,
 }: ConfirmModalProps) {
   return (
     <div style={s.overlay} onClick={onCancel}>
       <div style={s.box} onClick={(e) => e.stopPropagation()}>
         <div style={s.title}>{title}</div>
         <p style={s.body}>{body}</p>
+        {children}
         <div style={s.actions}>
           <button style={s.cancel} onClick={onCancel}>Cancel</button>
-          <button style={s.confirm} onClick={onConfirm}>{confirmLabel}</button>
+          <button
+            style={{
+              ...s.confirm,
+              ...(confirmDisabled ? s.confirmDisabled : {}),
+            }}
+            onClick={onConfirm}
+            disabled={confirmDisabled}
+          >
+            {confirmLabel}
+          </button>
         </div>
       </div>
     </div>
@@ -71,5 +85,9 @@ const s: Record<string, React.CSSProperties> = {
     fontFamily: "'DM Sans', sans-serif",
     fontSize: "14px", fontWeight: 600, cursor: "pointer",
     transition: "background 0.15s ease",
+  },
+  confirmDisabled: {
+    opacity: 0.45,
+    cursor: "not-allowed",
   },
 };
