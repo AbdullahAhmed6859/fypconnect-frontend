@@ -1,4 +1,5 @@
-﻿import React, { useRef, useState } from "react";
+﻿// Multi-step profile setup flow used before a student can access matching.
+import React, { useRef, useState } from "react";
 import { setupProfile } from "../../api/profileApi";
 import {
   AvatarPlaceholder,

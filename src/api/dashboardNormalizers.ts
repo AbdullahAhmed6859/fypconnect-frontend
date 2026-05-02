@@ -1,3 +1,4 @@
+// Converts dashboard-related backend payloads into frontend dashboard models.
 import type { ChatThread, MatchedPerson, Profile } from "../types/dashboard";
 import type { JsonRecord, RawConversation, RawMatch, RawProfile } from "./dashboardTypes";
 

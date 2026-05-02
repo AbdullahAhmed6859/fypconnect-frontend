@@ -1,3 +1,4 @@
+// Normalizes profile API envelopes into the shapes used by forms and pages.
 import type {
   MyProfileData,
   PreferencesData,

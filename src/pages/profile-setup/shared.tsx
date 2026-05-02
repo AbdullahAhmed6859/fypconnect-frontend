@@ -1,4 +1,5 @@
 ﻿/* eslint-disable react-refresh/only-export-components */
+// Shared form state, validation helpers, and UI pieces for profile setup.
 import React, { useEffect, useMemo, useState } from "react";
 import { logoutUser } from "../../api/authApi";
 import {

@@ -1,3 +1,4 @@
+// Shared fetch response handling for API calls that use the backend envelope format.
 export type ApiError = {
   code: number;
   message: string;

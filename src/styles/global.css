@@ -1,4 +1,4 @@
-/* Global styles and design tokens for FYPConnect */
+/* Shared design tokens and base page styling for FYPConnect. */
 
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Fraunces:wght@600;700&display=swap');
 
@@ -43,7 +43,6 @@ body {
   overflow-x: hidden;
 }
 
-/* Subtle geometric background pattern */
 body::before {
   content: '';
   position: fixed;

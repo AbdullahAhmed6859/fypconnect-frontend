@@ -1,3 +1,4 @@
+// Profile endpoints for setup, editing, preferences, and completion checks.
 import { profileRoutes } from "./routes";
 import { handleEnvelope, jsonHeaders, type ApiEnvelope } from "./client";
 import {

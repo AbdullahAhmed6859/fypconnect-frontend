@@ -15,6 +15,7 @@ import { MatchSettingsPage } from "./pages/profile/MatchSettingsPage";
 import { MyProfileOverviewPage } from "./pages/profile/MyProfileOverviewPage";
 import { getProfileStatus } from "./api/profileApi";
 
+// App-level routing with profile-completion guards.
 type GuardMode = "dashboard" | "setup";
 
 const SETUP_START_PATH = "/profile/setup/academic";
@@ -85,7 +86,6 @@ function AuthenticatedRoute({
   return <>{children}</>;
 }
 
-// Simple client-side router — replace with React Router once backend routing is set up
 function getPage() {
   const path = window.location.pathname;
   if (path === "/verify-email")               return <VerifyEmailPage />;
@@ -98,7 +98,7 @@ function getPage() {
   if (path === "/profile/setup/matching")     return <AuthenticatedRoute mode="setup"><ProfileSetupMatchingPage /></AuthenticatedRoute>;
   if (path === "/profile/setup/preferences")  return <AuthenticatedRoute mode="setup"><ProfileSetupPreferencesPage /></AuthenticatedRoute>;
   if (path === "/profile/setup/personal")     return <AuthenticatedRoute mode="setup"><ProfileSetupPersonalPage /></AuthenticatedRoute>;
-  return <RegisterPage />; // default
+  return <RegisterPage />;
 }
 
 export default function App() {

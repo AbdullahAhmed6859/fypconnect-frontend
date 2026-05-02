@@ -1,4 +1,5 @@
-﻿import React, { useEffect, useRef, useState } from "react";
+﻿// Edit form for the signed-in user's public profile.
+import React, { useEffect, useRef, useState } from "react";
 import { getMyProfile, unwrapMyProfile, updateMyProfile } from "../../api/profileApi";
 import {
   MAX_BIO_WORDS,

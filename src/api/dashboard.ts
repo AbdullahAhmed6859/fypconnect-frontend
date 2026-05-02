@@ -1,3 +1,4 @@
+// Compatibility exports for older dashboard imports.
 export * from "./discoveryApi";
 export * from "./matchesApi";
 export * from "./browseApi";

@@ -1,4 +1,5 @@
-﻿import React, { useEffect, useState } from "react";
+﻿// Main dashboard screen: browsing, matches, chats, and access checks live here.
+import React, { useEffect, useState } from "react";
 import LeftPanel from "../../components/dashboard/LeftPanel";
 import ProfileCard from "../../components/dashboard/ProfileCard";
 import ChatPanel from "../../components/dashboard/ChatPanel";

@@ -1,3 +1,4 @@
+// Read-only profile view with account-level actions.
 import { useMemo, useState, type CSSProperties } from "react";
 import { deleteMyAccount } from "../../api/safetyApi";
 import ConfirmModal from "../../components/dashboard/ConfirmModal";

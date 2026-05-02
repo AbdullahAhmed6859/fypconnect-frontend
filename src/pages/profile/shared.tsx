@@ -1,4 +1,5 @@
 ﻿/* eslint-disable react-refresh/only-export-components */
+// Shared profile page helpers, editors, and layout styles.
 import React, { useEffect, useState } from "react";
 import { logoutUser } from "../../api/authApi";
 import {

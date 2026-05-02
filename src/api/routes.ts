@@ -1,3 +1,4 @@
+// Centralized backend route definitions built from the configured API base URL.
 export const API_BASE_URL =
   (import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "http://localhost:5000/api/v1");
 

@@ -1,4 +1,5 @@
-﻿import { useEffect, useState } from "react";
+﻿// Matching preferences and blocked-user management for the current profile.
+import { useEffect, useState } from "react";
 import {
   getMyPreferences,
   unwrapPreferences,
